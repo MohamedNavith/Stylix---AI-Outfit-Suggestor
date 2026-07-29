@@ -27,6 +27,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_root():
+    return {"status": "Stylix Backend Online", "version": "0.1.0"}
+
+
 # API Schemas
 class LoginSchema(BaseModel):
     username: str
