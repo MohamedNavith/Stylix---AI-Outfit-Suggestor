@@ -1,3 +1,10 @@
+-- Clean up any existing tables to start fresh and avoid dependency conflicts
+DROP TABLE IF EXISTS public.chat_history CASCADE;
+DROP TABLE IF EXISTS public.routine_plans CASCADE;
+DROP TABLE IF EXISTS public.style_profiles CASCADE;
+DROP TABLE IF EXISTS public.wardrobe_items CASCADE;
+DROP TABLE IF EXISTS public.stylix_users CASCADE;
+
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS public.stylix_users (
     username text PRIMARY KEY,
