@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Javascript/Node/Vite
+node_modules/
+dist/
+dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.vscode/
+.idea/
+.DS_Store
+
+# Large archives/zips (keep repo clean)
+*.zip
+
+# Local SQLite databases or temp db files if any
+*.db
+*.sqlite3

@@ -1,0 +1,231 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+/* Stylix Premium Dark Theme */
+:root {
+  --bg-primary: #0A090E;
+  --bg-secondary: #13111C;
+  --bg-surface: rgba(19, 17, 28, 0.7);
+  --accent: #B794F4; /* Soft Violet/Purple */
+  --accent-glow: rgba(183, 148, 244, 0.15);
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0AEC0;
+  --text-muted: #718096;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-accent: rgba(183, 148, 244, 0.3);
+  --card-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5);
+  --font-sans: 'Outfit', sans-serif;
+  --font-mono: 'Space Grotesk', sans-serif;
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-bounce: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Secondary palette styles for customizer */
+[data-theme='cyber'] {
+  --bg-primary: #080C14;
+  --bg-secondary: #0D1524;
+  --bg-surface: rgba(13, 21, 36, 0.7);
+  --accent: #10B981;
+  --accent-glow: rgba(16, 185, 129, 0.15);
+  --border-accent: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme='gold'] {
+  --bg-primary: #0E0B09;
+  --bg-secondary: #18120F;
+  --bg-surface: rgba(24, 18, 15, 0.7);
+  --accent: #D97706;
+  --accent-glow: rgba(217, 119, 6, 0.15);
+  --border-accent: rgba(217, 119, 6, 0.3);
+}
+
+/* Reset and Layout */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden; /* Avoid double scrolling */
+  min-height: 100vh;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Scrollable Container for Horizontal Day Timeline */
+.days-scroll-container {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  gap: 20px;
+  padding: 8px 4px 20px 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.day-card-wrapper {
+  flex: 0 0 310px; /* Matches layout in Figma */
+  scroll-snap-align: start;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 480px) {
+  .day-card-wrapper {
+    flex: 0 0 280px;
+  }
+}
+
+/* Glassmorphic Panel/Card elements */
+.glass-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition-smooth);
+}
+
+.glass-panel:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  transition: var(--transition-bounce);
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-accent);
+}
+
+/* Styled buttons matching Figma */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-bounce);
+}
+
+.btn-primary:hover {
+  transform: scale(1.02);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent);
+}
+
+/* UI Chips */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+}
+
+.chip-accent {
+  background: var(--accent-glow);
+  color: var(--accent);
+  border-color: var(--border-accent);
+}
+
+/* Form Styles */
+.form-input {
+  width: 100%;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  transition: var(--transition-smooth);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Floating AI Chatbot Action Button */
+.chat-fab {
+  position: fixed;
+  bottom: 90px; /* Sits above the tab bar */
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #B794F4 0%, #805AD5 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4);
+  transition: var(--transition-bounce);
+  z-index: 100;
+}
+
+.chat-fab:hover {
+  transform: scale(1.1) rotate(10deg);
+  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.6);
+}
+
+/* Animation utilities */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

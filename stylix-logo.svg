@@ -1,0 +1,32 @@
+<svg width="640" height="220" viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .wordmark { font-family: 'Georgia', 'Times New Roman', serif; font-size: 92px; font-weight: 600; fill: #1B1F3B; letter-spacing: 1px; }
+      .tagline { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 15px; letter-spacing: 5px; fill: #8C8264; }
+    </style>
+  </defs>
+
+  <!-- background -->
+  <rect width="640" height="220" fill="#F7F4EF"/>
+
+  <!-- mark: a hanger hook that curls into a closed loop (rotation/cycle),
+       doubling as the top of a lowercase "s" curve -->
+  <g transform="translate(38,40)">
+    <path d="M 70 6
+             C 70 -4, 56 -4, 52 6
+             C 48 16, 58 24, 70 24
+             C 92 24, 92 52, 70 52
+             C 40 52, 12 52, 12 78
+             C 12 100, 34 112, 70 112
+             C 106 112, 128 100, 128 78"
+          fill="none" stroke="#C9A227" stroke-width="9" stroke-linecap="round"/>
+    <!-- spark dot: the "intelligence" accent at the hook tip -->
+    <circle cx="52" cy="8" r="7" fill="#1B1F3B"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="200" y="128" class="wordmark">Stylix</text>
+
+  <!-- tagline -->
+  <text x="202" y="160" class="tagline">DRESS. WEAR. REPEAT NEVER.</text>
+</svg>
