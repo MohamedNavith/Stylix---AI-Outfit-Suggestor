@@ -296,6 +296,156 @@ def chat_endpoint(data: ChatSchema):
     response = coordinator.stylist_agent.chat_with_stylist(data.username, data.message)
     return {"response": response}
 
+# Telegram Webhook Endpoints
+@app.post("/api/webhooks/telegram")
+async def telegram_webhook(request: Request):
+    try:
+        data = await request.json()
+        if "message" not in data:
+            return {"status": "ignored"}
+        
+        msg = data["message"]
+        chat_id = str(msg["chat"]["id"])
+        text = msg.get("text", "").strip()
+        
+        if not text:
+            return {"status": "no text"}
+            
+        # Check start command: "/start username"
+        if text.startswith("/start"):
+            parts = text.split(maxsplit=1)
+            if len(parts) > 1:
+                target_user = parts[1].strip()
+                user = db.get_user(target_user)
+                if user:
+                    db.update_user_settings(target_user, {
+                        "telegram_chat_id": chat_id,
+                        "telegram_linked": True
+                    })
+                    reply_text = f"Welcome {user.get('name', target_user)}! Your Telegram is now linked to Stylix wardrobe assistant."
+                else:
+                    reply_text = f"Username '{target_user}' not found on Stylix. Please register first!"
+            else:
+                reply_text = "Welcome to Stylix! Use: /start <your_username> to link your account."
+                
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "linked"}
+            
+        # Normal chat
+        user = db.get_user_by_telegram_chat_id(chat_id)
+        if user:
+            username = user["username"]
+            reply_text = coordinator.stylist_agent.chat_with_stylist(username, text)
+        else:
+            reply_text = "Your Telegram is not linked to a Stylix account. Please type: /start <your_username> to connect."
+            
+        await send_telegram_message(chat_id, reply_text)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"Telegram webhook error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+async def send_telegram_message(chat_id: str, text: str):
+    if not TELEGRAM_BOT_TOKEN:
+        print("TELEGRAM_BOT_TOKEN is not configured.")
+        return
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    async with httpx.AsyncClient() as client:
+        await client.post(url, json=payload)
+
+# WhatsApp Webhook Endpoints
+@app.get("/api/webhooks/whatsapp")
+def verify_whatsapp(request: Request):
+    params = dict(request.query_params)
+    mode = params.get("hub.mode")
+    token = params.get("hub.verify_token")
+    challenge = params.get("hub.challenge")
+    
+    if mode == "subscribe" and token == WHATSAPP_VERIFY_TOKEN:
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=challenge)
+    raise HTTPException(status_code=403, detail="Verification failed")
+
+@app.post("/api/webhooks/whatsapp")
+async def whatsapp_webhook(request: Request):
+    try:
+        data = await request.json()
+        entry = data.get("entry", [])
+        if not entry:
+            return {"status": "ignored"}
+            
+        changes = entry[0].get("changes", [])
+        if not changes:
+            return {"status": "ignored"}
+            
+        value = changes[0].get("value", {})
+        messages = value.get("messages", [])
+        if not messages:
+            return {"status": "ignored"}
+            
+        msg = messages[0]
+        phone = msg.get("from")
+        text = msg.get("text", {}).get("body", "").strip()
+        
+        if not text or not phone:
+            return {"status": "no text"}
+            
+        # Check start command: "/start username"
+        if text.lower().startswith("/start"):
+            parts = text.split(maxsplit=1)
+            if len(parts) > 1:
+                target_user = parts[1].strip()
+                user = db.get_user(target_user)
+                if user:
+                    db.update_user_settings(target_user, {
+                        "whatsapp_phone_number": phone,
+                        "whatsapp_linked": True
+                    })
+                    reply_text = f"Welcome {user.get('name', target_user)}! Your WhatsApp is now linked to Stylix wardrobe assistant."
+                else:
+                    reply_text = f"Username '{target_user}' not found on Stylix. Please register first!"
+            else:
+                reply_text = "Welcome to Stylix! Use: /start <your_username> to link your account."
+                
+            await send_whatsapp_message(phone, reply_text)
+            return {"status": "linked"}
+            
+        # Normal chat
+        user = db.get_user_by_whatsapp_phone(phone)
+        if user:
+            username = user["username"]
+            reply_text = coordinator.stylist_agent.chat_with_stylist(username, text)
+        else:
+            reply_text = "Your WhatsApp is not linked to a Stylix account. Please reply with: /start <your_username> to connect."
+            
+        await send_whatsapp_message(phone, reply_text)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"WhatsApp webhook error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+async def send_whatsapp_message(phone: str, text: str):
+    if not WHATSAPP_TOKEN:
+        print("WHATSAPP_TOKEN is not configured.")
+        return
+    url = "https://graph.facebook.com/v17.0/me/messages"
+    headers = {
+        "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "text",
+        "text": {"body": text}
+    }
+    async with httpx.AsyncClient() as client:
+        res = await client.post(url, json=payload, headers=headers)
+        if res.status_code not in [200, 201]:
+            print(f"Failed to send WhatsApp message: {res.text}")
+
+
 # Dev Endpoints
 @app.post("/api/dev/reset")
 def reset_database(username: str):

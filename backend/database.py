@@ -194,6 +194,35 @@ class EncryptedDatabase:
             return None
         return self.data["users"].get(username)
 
+    def get_user_by_telegram_chat_id(self, chat_id: str) -> Optional[Dict[str, Any]]:
+        if self.is_cloud:
+            try:
+                res = httpx.get(f"{SUPABASE_URL}/rest/v1/stylix_users?telegram_chat_id=eq.{chat_id}", headers=self.headers)
+                if res.status_code == 200 and res.json():
+                    return res.json()[0]
+            except Exception as e:
+                print(f"Error fetching user by telegram chat ID: {e}")
+            return None
+        for username, user in self.data["users"].items():
+            if user.get("telegram_chat_id") == chat_id:
+                return user
+        return None
+
+    def get_user_by_whatsapp_phone(self, phone: str) -> Optional[Dict[str, Any]]:
+        if self.is_cloud:
+            try:
+                res = httpx.get(f"{SUPABASE_URL}/rest/v1/stylix_users?whatsapp_phone_number=eq.{phone}", headers=self.headers)
+                if res.status_code == 200 and res.json():
+                    return res.json()[0]
+            except Exception as e:
+                print(f"Error fetching user by whatsapp phone: {e}")
+            return None
+        for username, user in self.data["users"].items():
+            if user.get("whatsapp_phone_number") == phone:
+                return user
+        return None
+
+
     def create_user(self, username: str, password: str, name: Optional[str] = None, birthday: Optional[str] = None, gender: Optional[str] = None) -> bool:
         if self.is_cloud:
             # Check if user already exists
