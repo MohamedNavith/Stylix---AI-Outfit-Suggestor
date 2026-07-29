@@ -18,7 +18,7 @@ services:
         sync: false # Set this in the Render dashboard for your AI Chatbot
 
   # 2. React Vite Frontend Static Site (Static Site)
-  - type: static
+  - type: static_site
     name: stylix-frontend
     plan: free
     rootDir: frontend
