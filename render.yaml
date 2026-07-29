@@ -9,13 +9,13 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
-        sync: false
+        value: https://rrgglnwfdggbuwxwiqkz.supabase.co
       - key: SUPABASE_PUBLISHABLE_KEY
-        sync: false
+        value: sb_publishable_dgK--KNZ9k0y1dlg58jqug_Shzbe-5Z
       - key: SUPABASE_KEY
-        sync: false
+        value: sb_publishable_dgK--KNZ9k0y1dlg58jqug_Shzbe-5Z
       - key: GEMINI_API_KEY
-        sync: false
+        sync: false # Set this in the Render dashboard for your AI Chatbot
 
   # 2. React Vite Frontend Static Site (Static Site)
   - type: static
@@ -26,4 +26,7 @@ services:
     publishDir: dist
     envVars:
       - key: VITE_API_URL
-        sync: false
+        fromService:
+          type: web
+          name: stylix-backend
+          property: host

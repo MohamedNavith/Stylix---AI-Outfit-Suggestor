@@ -7,7 +7,10 @@ import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
 
-const API_HOST = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+let API_HOST = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+if (API_HOST && !API_HOST.startsWith("http://") && !API_HOST.startsWith("https://")) {
+  API_HOST = `https://${API_HOST}`;
+}
 
 function StylixLogo({ size = 32 }) {
   return (
