@@ -7,7 +7,17 @@ import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
 
-let API_HOST = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+let API_HOST = import.meta.env.VITE_API_URL;
+if (!API_HOST) {
+  if (window.location.hostname.includes("vercel.app")) {
+    const parts = window.location.hostname.split("-");
+    if (parts.length > 0) {
+      API_HOST = `${parts[0]}-backend.vercel.app`;
+    }
+  } else {
+    API_HOST = "http://127.0.0.1:8000";
+  }
+}
 if (API_HOST && !API_HOST.startsWith("http://") && !API_HOST.startsWith("https://")) {
   API_HOST = `https://${API_HOST}`;
 }
