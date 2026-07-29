@@ -4,6 +4,10 @@ import base64
 from typing import Dict, List, Any, Optional
 import httpx
 from Crypto.Cipher import AES
+from dotenv import load_dotenv
+
+# Load env variables
+load_dotenv()
 
 # Configuration
 DB_FILE = os.path.join(os.path.dirname(__file__), "database.enc")
@@ -70,6 +74,7 @@ class EncryptedDatabase:
                     print("Supabase connection established successfully.")
                 else:
                     print(f"Supabase test connection returned status: {res.status_code}. Details: {res.text}")
+                    self.is_cloud = False
             except Exception as e:
                 print(f"Supabase connection test failed: {e}. Falling back to local mode.")
                 self.is_cloud = False
