@@ -17,7 +17,11 @@ except ImportError:
 def get_gemini_client() -> Optional[Any]:
     if not HAS_GENAI:
         return None
-    api_key = os.environ.get("GEMINI_API_KEY")
+    try:
+        from config_keys import DEFAULT_GEMINI_API_KEY
+    except ImportError:
+        DEFAULT_GEMINI_API_KEY = ""
+    api_key = os.environ.get("GEMINI_API_KEY") or DEFAULT_GEMINI_API_KEY
     if not api_key:
         return None
     try:
@@ -25,6 +29,7 @@ def get_gemini_client() -> Optional[Any]:
     except Exception as e:
         print(f"Error initializing Gemini Client in StylistAgent: {e}")
         return None
+
 
 # Multiplier constants for learning updates
 THUMBS_UP_BOOST = 0.2
@@ -360,7 +365,11 @@ class StylistAgent:
         )
 
         # 1. Try Grok (xAI) API
-        grok_key = os.environ.get("GROK_API_KEY")
+        try:
+            from config_keys import DEFAULT_GROK_API_KEY
+        except ImportError:
+            DEFAULT_GROK_API_KEY = ""
+        grok_key = os.environ.get("GROK_API_KEY") or DEFAULT_GROK_API_KEY
         if grok_key:
             try:
                 import httpx

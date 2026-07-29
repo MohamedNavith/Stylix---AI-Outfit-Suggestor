@@ -14,8 +14,15 @@ DB_FILE = os.path.join(os.path.dirname(__file__), "database.enc")
 DEFAULT_KEY = b"RotationN_SecureWardrobeKey_2026"
 
 # Supabase Configurations
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
-SUPABASE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "") or os.environ.get("SUPABASE_KEY", "")
+try:
+    from config_keys import DEFAULT_SUPABASE_URL, DEFAULT_SUPABASE_KEY
+except ImportError:
+    DEFAULT_SUPABASE_URL = ""
+    DEFAULT_SUPABASE_KEY = ""
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or DEFAULT_SUPABASE_URL
+SUPABASE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY") or os.environ.get("SUPABASE_KEY") or DEFAULT_SUPABASE_KEY
+
 
 def get_encryption_key() -> bytes:
     key_str = os.environ.get("ROTATION_DB_KEY", "")
