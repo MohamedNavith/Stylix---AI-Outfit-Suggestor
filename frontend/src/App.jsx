@@ -24,14 +24,15 @@ if (API_HOST && !API_HOST.startsWith("http://") && !API_HOST.startsWith("https:/
 
 function StylixLogo({ size = 32 }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="512" height="512" rx="115" fill="#0B0D12"/>
       <path 
-        d="M 70 6 C 70 -4, 56 -4, 52 6 C 48 16, 58 24, 70 24 C 92 24, 92 52, 70 52 C 40 52, 12 52, 12 78 C 12 100, 34 112, 70 112 C 106 112, 128 100, 128 78" 
-        stroke="#cca43b" 
-        strokeWidth="10" 
+        d="M256 140 C270 140 280 152 280 168 C280 185 260 195 240 205 L200 220 C180 230 170 250 170 270 C170 305 205 320 256 320 C307 320 342 305 342 270" 
+        stroke="#E6CA65" 
+        strokeWidth="20" 
         strokeLinecap="round" 
+        strokeLinejoin="round"
       />
-      <circle cx="52" cy="8" r="8" fill="#1d2440" />
     </svg>
   );
 }
