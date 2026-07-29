@@ -15,7 +15,12 @@ db = EncryptedDatabase()
 coordinator = CoordinatorAgent(db)
 
 # Load tokens from environment
-TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+try:
+    from config_keys import DEFAULT_TELEGRAM_BOT_TOKEN
+except ImportError:
+    DEFAULT_TELEGRAM_BOT_TOKEN = ""
+
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or DEFAULT_TELEGRAM_BOT_TOKEN
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "")
 WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "stylix_verification")
 
