@@ -335,44 +335,75 @@ class StylistAgent:
         name = user_info.get("name", username)
         gender = user_info.get("gender", "male")
         
-        client = get_gemini_client()
         reply = ""
         
-        if client:
-            try:
-                wardrobe_summary = [
-                    f"- {item['name']} [ID: {item['id']}]: Category={item['category']}, Color={item['color']}, Formality={item['formality']}, Status={'Clean' if item['is_clean'] else 'Dirty'}"
-                    for item in wardrobe
-                ]
-                plan_summary = []
-                for slot in plan:
-                    outfit_desc = ", ".join([f"{i['name']} ({i['color']})" for i in slot["assigned_outfit"]]) if slot.get("assigned_outfit") else "None"
-                    plan_summary.append(f"- {slot['day_name']} ({slot.get('date_label', '')}): Occasion={slot['occasion']}, Outfit={outfit_desc}, Status={slot['status']}")
-                
-                system_instruction = (
-                    f"You are Stylix AI, a personal stylist chatbot integrated inside the Stylix wardrobe app. "
-                    f"The user is {name}, who identifies as {gender}. "
-                    "You have access to the user's clothing catalog, style preferences, and current week's schedule. "
-                    "Keep answers brief, punchy, useful, and stylish. Use the following context to answer precisely:\n\n"
-                    f"[USER CATALOG]:\n" + "\n".join(wardrobe_summary) + "\n\n"
-                    f"[STYLE PROFILE]:\n" + json.dumps(profile) + "\n\n"
-                    f"[WEEKLY PLANNER]:\n" + "\n".join(plan_summary) + "\n\n"
-                    "Help the user decide what to wear, suggest changes, check if clothes are clean, or explain how their laundry rotation works. "
-                    "Avoid meta-language. Respond in a helpful, direct tone."
-                )
-                
-                response = client.models.generate_content(
-                    model='gemini-2.0-flash',
-                    contents=message,
-                    config=types.GenerateContentConfig(
-                        system_instruction=system_instruction,
-                        temperature=0.7
-                    )
-                )
-                reply = response.text.strip()
-            except Exception as e:
-                print(f"Gemini Chatbot Error: {e}. Falling back to simulation.")
+        # Build context
+        wardrobe_summary = [
+            f"- {item['name']} [ID: {item['id']}]: Category={item['category']}, Color={item['color']}, Formality={item['formality']}, Status={'Clean' if item['is_clean'] else 'Dirty'}"
+            for item in wardrobe
+        ]
+        plan_summary = []
+        for slot in plan:
+            outfit_desc = ", ".join([f"{i['name']} ({i['color']})" for i in slot["assigned_outfit"]]) if slot.get("assigned_outfit") else "None"
+            plan_summary.append(f"- {slot['day_name']} ({slot.get('date_label', '')}): Occasion={slot['occasion']}, Outfit={outfit_desc}, Status={slot['status']}")
+        
+        system_instruction = (
+            f"You are Stylix AI, a personal stylist chatbot integrated inside the Stylix wardrobe app. "
+            f"The user is {name}, who identifies as {gender}. "
+            "You have access to the user's clothing catalog, style preferences, and current week's schedule. "
+            "Keep answers brief, punchy, useful, and stylish. Use the following context to answer precisely:\n\n"
+            f"[USER CATALOG]:\n" + "\n".join(wardrobe_summary) + "\n\n"
+            f"[STYLE PROFILE]:\n" + json.dumps(profile) + "\n\n"
+            f"[WEEKLY PLANNER]:\n" + "\n".join(plan_summary) + "\n\n"
+            "Help the user decide what to wear, suggest changes, check if clothes are clean, or explain how their laundry rotation works. "
+            "Avoid meta-language. Respond in a helpful, direct tone."
+        )
 
+        # 1. Try Grok (xAI) API
+        grok_key = os.environ.get("GROK_API_KEY")
+        if grok_key:
+            try:
+                import httpx
+                headers = {
+                    "Authorization": f"Bearer {grok_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "grok-beta",
+                    "messages": [
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": message}
+                    ],
+                    "temperature": 0.7
+                }
+                res = httpx.post("https://api.x.ai/v1/chat/completions", json=payload, headers=headers, timeout=20.0)
+                if res.status_code == 200:
+                    reply = res.json()["choices"][0]["message"]["content"].strip()
+                    print("Grok Chatbot response generated successfully.")
+                else:
+                    print(f"Grok API returned error: {res.status_code} - {res.text}")
+            except Exception as e:
+                print(f"Grok API call failed: {e}")
+
+        # 2. Fallback to Gemini API
+        if not reply:
+            client = get_gemini_client()
+            if client:
+                try:
+                    response = client.models.generate_content(
+                        model='gemini-2.0-flash',
+                        contents=message,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_instruction,
+                            temperature=0.7
+                        )
+                    )
+                    reply = response.text.strip()
+                    print("Gemini Chatbot response generated successfully (fallback).")
+                except Exception as e:
+                    print(f"Gemini Chatbot Error (fallback): {e}. Falling back to simulation.")
+
+        # 3. Fallback to local rule-based simulation
         if not reply:
             msg_lower = message.lower()
             if "clean" in msg_lower:
