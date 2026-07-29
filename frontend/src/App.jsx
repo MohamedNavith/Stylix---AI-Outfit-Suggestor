@@ -499,6 +499,27 @@ export default function App() {
           >
             <Droplet size={16} /> Laundry Pool
           </button>
+          <a 
+            href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-secondary"
+            style={{ 
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-start', 
+              gap: '8px',
+              background: 'transparent',
+              borderColor: 'transparent',
+              color: 'var(--text-primary)',
+              textDecoration: 'none',
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '0.85rem'
+            }}
+          >
+            <Send size={16} style={{ color: '#0088cc' }} /> <span>Telegram Bot</span>
+          </a>
         </nav>
 
         {/* Consolidated Agent Heartbeats */}
@@ -555,6 +576,30 @@ export default function App() {
 
           {/* Profile Details Trigger (Top Right) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <a 
+              href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0088cc 0%, #0077b5 100%)',
+                color: '#FFF',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+                boxShadow: '0 4px 12px rgba(0, 136, 204, 0.2)',
+                transition: 'transform 0.2s, opacity 0.2s',
+                marginRight: '6px'
+              }}
+              className="hover-scale"
+            >
+              <Send size={14} />
+              <span>Telegram Bot</span>
+            </a>
             <div 
               onClick={() => setShowSettings(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
@@ -651,9 +696,32 @@ export default function App() {
               <Sparkles size={16} />
               <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Stylix AI Stylist</span>
             </div>
-            <button onClick={() => setShowChat(false)} style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer' }}>
-              <X size={16} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <a 
+                href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                title="Chat with Stylix on Telegram"
+                style={{ 
+                  background: 'rgba(255,255,255,0.15)', 
+                  border: 'none', 
+                  color: '#FFF', 
+                  borderRadius: '50%', 
+                  width: '26px', 
+                  height: '26px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  textDecoration: 'none'
+                }}
+              >
+                <Send size={12} />
+              </a>
+              <button onClick={() => setShowChat(false)} style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           <div style={{ flexGrow: 1, padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -838,17 +906,59 @@ export default function App() {
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '6px' }}>
-                <div style={{ flexGrow: 1 }}>
-                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>Telegram Link</span>
-                  <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Sync wardrobe queries with Telegram Bot</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ flexGrow: 1 }}>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>Telegram Link</span>
+                    <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Sync wardrobe queries with Telegram Bot</span>
+                  </div>
+                  <input 
+                    type="checkbox" 
+                    checked={telegramLinked} 
+                    onChange={(e) => setTelegramLinked(e.target.checked)}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '3px' }}
+                  />
                 </div>
-                <input 
-                  type="checkbox" 
-                  checked={telegramLinked} 
-                  onChange={(e) => setTelegramLinked(e.target.checked)}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer', marginTop: '3px' }}
-                />
+                {telegramLinked && (
+                  <div style={{ 
+                    marginTop: '4px', 
+                    padding: '10px', 
+                    borderRadius: '8px', 
+                    background: 'rgba(0, 136, 204, 0.08)', 
+                    border: '1px solid rgba(0, 136, 204, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)', lineHeight: '1.3' }}>
+                      To complete the sync, open our bot and click <strong>Start</strong> (it will automatically link username <strong>{currentUser}</strong>):
+                    </span>
+                    <a 
+                      href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        gap: '6px', 
+                        padding: '6px 12px', 
+                        fontSize: '0.75rem', 
+                        background: '#0088cc', 
+                        color: '#FFF', 
+                        textDecoration: 'none', 
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        textAlign: 'center',
+                        transition: 'opacity 0.2s'
+                      }}
+                      className="hover:opacity-90"
+                    >
+                      <Send size={12} />
+                      Open Telegram Bot
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
