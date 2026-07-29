@@ -27,11 +27,11 @@ function StylixLogo({ size = 32 }) {
     <svg width={size} height={size} viewBox="0 0 140 140" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path 
         d="M 70 6 C 70 -4, 56 -4, 52 6 C 48 16, 58 24, 70 24 C 92 24, 92 52, 70 52 C 40 52, 12 52, 12 78 C 12 100, 34 112, 70 112 C 106 112, 128 100, 128 78" 
-        stroke="var(--accent)" 
+        stroke="#cca43b" 
         strokeWidth="10" 
         strokeLinecap="round" 
       />
-      <circle cx="52" cy="8" r="8" fill="var(--text-primary)" />
+      <circle cx="52" cy="8" r="8" fill="#1d2440" />
     </svg>
   );
 }
@@ -305,9 +305,9 @@ export default function App() {
             <div style={{ display: 'inline-flex', marginBottom: '12px' }}>
               <StylixLogo size={48} />
             </div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, fontFamily: 'var(--font-sans)', color: '#FFF' }}>Stylix</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
-              Real-time multi-agent wardrobe planning & 3D styling
+            <h2 style={{ fontSize: '1.8rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h2>
+            <p style={{ color: '#cca43b', fontSize: '0.62rem', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '2.5px', fontWeight: 'bold' }}>
+              Dress. Wear. Repeat Never.
             </p>
           </div>
 
@@ -456,8 +456,8 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <StylixLogo size={36} />
           <div>
-            <h1 style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#FFF' }}>Stylix</h1>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Consolidated Engine</span>
+            <h1 style={{ fontSize: '1.45rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h1>
+            <span style={{ fontSize: '0.55rem', color: '#cca43b', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Dress. Wear. Repeat Never.</span>
           </div>
         </div>
 
@@ -504,9 +504,9 @@ export default function App() {
         {/* Consolidated Agent Heartbeats */}
         <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Cpu size={16} style={{ color: 'var(--accent)' }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              Consolidated Engine
+            <Cpu size={16} style={{ color: '#cca43b' }} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              Dress. Wear. Repeat Never.
             </span>
           </div>
 
