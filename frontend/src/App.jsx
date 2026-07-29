@@ -6,6 +6,7 @@ import {
 import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
+import { BUILD_ID } from './version';
 
 let API_HOST = import.meta.env.VITE_API_URL;
 if (!API_HOST) {
@@ -71,6 +72,10 @@ export default function App() {
   const [telegramLinked, setTelegramLinked] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
+  // App Update State
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [latestVersionId, setLatestVersionId] = useState('');
+
   // Chatbot State
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
@@ -84,6 +89,36 @@ export default function App() {
       checkBirthdayAlert();
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    // Only check for updates in production build
+    if (BUILD_ID === 'development') return;
+
+    const checkUpdates = async () => {
+      try {
+        const originUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+          ? (API_HOST.includes('-backend.vercel.app') 
+              ? API_HOST.replace('-backend.vercel.app', '.vercel.app') 
+              : 'https://stylix-three.vercel.app') 
+          : window.location.origin;
+
+        const res = await fetch(`${originUrl}/version.json?t=${Date.now()}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version && data.version !== BUILD_ID) {
+            setUpdateAvailable(true);
+            setLatestVersionId(data.version);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check for updates:', err);
+      }
+    };
+
+    checkUpdates();
+    const interval = setInterval(checkUpdates, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -294,12 +329,76 @@ export default function App() {
   // Auth Screen
   if (!currentUser) {
     return (
-      <div style={{
-        minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center',
-        background: 'var(--bg-primary)', position: 'relative', overflow: 'hidden', padding: '20px'
-      }}>
-        <div className="app-bg-overlay" />
-        <div className="glowing-blob" />
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)' }}>
+        {updateAvailable && (
+          <div style={{
+            position: 'sticky',
+            top: 0,
+            left: 0,
+            right: 0,
+            background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+            color: '#FFF',
+            padding: '10px 20px',
+            textAlign: 'center',
+            zIndex: 9999,
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '15px',
+            boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
+            borderBottom: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            <span>🔔 A new version of Stylix is available! Your code changes are live.</span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => window.location.reload(true)} 
+                style={{
+                  background: '#FFF',
+                  color: '#059669',
+                  border: 'none',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <RefreshCw size={12} /> Update Web
+              </button>
+              <a 
+                href="/stylix.apk" 
+                download="stylix.apk"
+                style={{
+                  background: 'rgba(255,255,255,0.15)',
+                  color: '#FFF',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  padding: '4px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Cpu size={12} /> Download Updated APK
+              </a>
+            </div>
+          </div>
+        )}
+        <div style={{
+          flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
+          position: 'relative', overflow: 'hidden', padding: '20px'
+        }}>
+          <div className="app-bg-overlay" />
+          <div className="glowing-blob" />
 
         <div className="glass-panel animate-scale" style={{ width: '100%', maxWidth: '440px', padding: '32px' }}>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
@@ -418,25 +517,115 @@ export default function App() {
           {isLogin && (
             <div style={{ 
               marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', 
-              textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' 
+              textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px' 
             }}>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Super Admin Account</span>
-              <button 
-                onClick={quickFillAdmin} 
-                className="btn-secondary" 
-                style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
-              >
-                Fill Admin Credentials
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Super Admin Account</span>
+                <button 
+                  onClick={quickFillAdmin} 
+                  className="btn-secondary" 
+                  style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
+                >
+                  Fill Admin Credentials
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile App</span>
+                <a 
+                  href="/stylix.apk" 
+                  download="stylix.apk"
+                  className="btn-primary" 
+                  style={{ 
+                    padding: '8px 12px', 
+                    fontSize: '0.8rem', 
+                    justifyContent: 'center',
+                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                    color: 'white',
+                    textDecoration: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    borderRadius: '8px'
+                  }}
+                >
+                  <Cpu size={14} /> Download Android App (APK)
+                </a>
+              </div>
             </div>
           )}
         </div>
       </div>
+    </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
+    <>
+      {updateAvailable && (
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          right: 0,
+          background: 'linear-gradient(90deg, #10B981 0%, #059669 100%)',
+          color: '#FFF',
+          padding: '10px 20px',
+          textAlign: 'center',
+          zIndex: 9999,
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '15px',
+          boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <span>🔔 A new version of Stylix is available! Your code changes are live.</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              onClick={() => window.location.reload(true)} 
+              style={{
+                background: '#FFF',
+                color: '#059669',
+                border: 'none',
+                padding: '4px 12px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <RefreshCw size={12} /> Update Web
+            </button>
+            <a 
+              href="/stylix.apk" 
+              download="stylix.apk"
+              style={{
+                background: 'rgba(255,255,255,0.15)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.3)',
+                padding: '4px 12px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <Cpu size={12} /> Download Updated APK
+            </a>
+          </div>
+        </div>
+      )}
+      
+      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
       {/* 1. PC SIDEBAR NAVIGATION & SYSTEM HEARTBEAT */}
       <div className="pc-sidebar" style={{
@@ -963,6 +1152,32 @@ export default function App() {
               </div>
             </div>
 
+            {/* Mobile App Download */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile Application</span>
+              <a 
+                href="/stylix.apk" 
+                download="stylix.apk"
+                className="btn-secondary" 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px', 
+                  padding: '8px 12px', 
+                  fontSize: '0.8rem', 
+                  background: 'rgba(16, 185, 129, 0.1)', 
+                  border: '1px solid rgba(16, 185, 129, 0.3)', 
+                  color: '#10B981', 
+                  textDecoration: 'none', 
+                  borderRadius: '8px',
+                  fontWeight: 600
+                }}
+              >
+                <Cpu size={14} /> Download Stylix APK
+              </a>
+            </div>
+
             {/* Custom Theme Switcher */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Theme Customizer</span>
@@ -1004,5 +1219,6 @@ export default function App() {
       `}} />
 
     </div>
+    </>
   );
 }
