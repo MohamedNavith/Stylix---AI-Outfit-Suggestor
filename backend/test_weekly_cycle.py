@@ -35,7 +35,15 @@ def run_simulation():
         "avoided_styles": ["preppy"],
         "formality_bias": "smart-casual"
     }
-    coordinator.profile_agent.initialize_onboarding(test_user, onboarding_data)
+    # 3. Simulate Onboarding quiz
+    print("\n[Step 2] Simulating Style Onboarding Quiz...")
+    onboarding_data = {
+        "preferred_colors": ["navy", "white", "black", "indigo"],
+        "avoided_colors": ["yellow"],
+        "avoided_styles": ["preppy"],
+        "formality_bias": "smart-casual"
+    }
+    coordinator.stylist_agent.initialize_onboarding(test_user, onboarding_data)
     print("Profile weights initialized:")
     profile = db.get_style_profile(test_user)
     print(f" -> Color weights: {json.dumps(profile['color_weights'])}")
@@ -69,15 +77,15 @@ def run_simulation():
         
     # Check laundry
     print("\nChecking Laundry & Rotation Status:")
-    laundry_stats = coordinator.laundry_agent.get_laundry_stats(test_user)
+    laundry_stats = coordinator.wardrobe_agent.get_laundry_stats(test_user)
     print(f" -> Clean items: {laundry_stats['clean_count']}")
     print(f" -> Dirty items (in wash): {laundry_stats['dirty_count']}")
     
     # 6. Simulate Running Laundry
     print("\n[Step 5] Running Laundry Cycle (Wash and Dry)...")
-    cleaned = coordinator.laundry_agent.clean_all_dirty_items(test_user)
+    cleaned = coordinator.wardrobe_agent.clean_all_dirty_items(test_user)
     print(f" -> Cleaned {cleaned} items.")
-    laundry_stats_after = coordinator.laundry_agent.get_laundry_stats(test_user)
+    laundry_stats_after = coordinator.wardrobe_agent.get_laundry_stats(test_user)
     print(f" -> Clean items: {laundry_stats_after['clean_count']} | Dirty items: {laundry_stats_after['dirty_count']}")
     
     print("\n==================================================")

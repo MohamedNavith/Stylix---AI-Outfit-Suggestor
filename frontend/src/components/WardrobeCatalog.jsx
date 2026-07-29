@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Trash2, Sparkles, Filter, Plus, Search } from 'lucide-react';
+import { Upload, Trash2, Sparkles, Filter, Plus, Search, Video, FileText } from 'lucide-react';
 
 export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
   const [items, setItems] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [activeUploadTab, setActiveUploadTab] = useState('photo'); // 'photo' or 'video'
+  const [videoStep, setVideoStep] = useState(0); // 0: idle, 1: extracting, 2: scanning, 3: rendering, 4: fitting
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterClean, setFilterClean] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +64,60 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
     reader.readAsDataURL(file);
   };
 
+  const handleVideoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    uploadVideo(file);
+  };
+
+  const uploadVideo = (file) => {
+    if (!username) return;
+    setUploading(true);
+    setVideoStep(1); // [Extracting Frames]
+
+    // Simulate OpenCV keyframe processing sequence (takes about 3.5 seconds)
+    const runStep = (step, nextFn) => {
+      setTimeout(() => {
+        setVideoStep(step);
+        if (nextFn) nextFn();
+      }, 1000);
+    };
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64Data = reader.result;
+      
+      runStep(2, () => { // [Gemini Vision Scanning]
+        runStep(3, () => { // [Reconstructing 3D Mesh]
+          runStep(4, async () => { // [Fitting Mannequin]
+            try {
+              const res = await fetch(`${apiHost}/api/wardrobe/upload-video?username=${encodeURIComponent(username)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  name: customName || null,
+                  video_data: base64Data,
+                  file_name: file.name
+                })
+              });
+              if (res.ok) {
+                setCustomName('');
+                fetchCatalog();
+                if (onStatsChange) onStatsChange();
+              }
+            } catch (err) {
+              console.error("Video Upload error:", err);
+            } finally {
+              setUploading(false);
+              setVideoStep(0);
+            }
+          });
+        });
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleDelete = async (itemId) => {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
@@ -95,7 +151,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
         <div>
           <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: '#FFF' }}>Wardrobe Catalog</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
-            Catalog clothing photos & auto-tag details via Gemini Vision
+            Catalog clothing photos & 360° videos on a hanger to auto-tag via Gemini Vision
           </p>
         </div>
       </div>
@@ -107,6 +163,34 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={16} /> Add Garment
           </h3>
+
+          {/* Upload method selection tabs */}
+          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', marginBottom: '16px' }}>
+            <button
+              onClick={() => setActiveUploadTab('photo')}
+              disabled={uploading}
+              style={{
+                flex: 1, padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                background: activeUploadTab === 'photo' ? 'var(--accent)' : 'transparent',
+                color: activeUploadTab === 'photo' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                transition: 'var(--transition-smooth)'
+              }}
+            >
+              <FileText size={12} style={{ marginRight: '4px', display: 'inline' }} /> Photo Scan
+            </button>
+            <button
+              onClick={() => setActiveUploadTab('video')}
+              disabled={uploading}
+              style={{
+                flex: 1, padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                background: activeUploadTab === 'video' ? 'var(--accent)' : 'transparent',
+                color: activeUploadTab === 'video' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                transition: 'var(--transition-smooth)'
+              }}
+            >
+              <Video size={12} style={{ marginRight: '4px', display: 'inline' }} /> 3D Video Scan (10s)
+            </button>
+          </div>
           
           <div className="form-group" style={{ marginBottom: '14px' }}>
             <label className="form-label">Garment Label (Optional)</label>
@@ -120,32 +204,66 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
             />
           </div>
 
-          <div style={{
-            border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '24px 16px', 
-            textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(0,0,0,0.1)',
-            transition: 'var(--transition-smooth)', position: 'relative'
-          }}>
-            {uploading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-                <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>Scanning with Gemini Vision...</span>
-              </div>
-            ) : (
-              <label style={{ cursor: 'pointer', display: 'block' }}>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleFileUpload} 
-                  style={{ display: 'none' }} 
-                />
-                <Upload size={24} style={{ color: 'var(--text-secondary)', marginBottom: '10px' }} />
-                <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Click to Upload Photo</p>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Gemini Vision automatically classifies fabric, tags and formality profile
-                </p>
-              </label>
-            )}
-          </div>
+          {activeUploadTab === 'photo' ? (
+            <div style={{
+              border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '24px 16px', 
+              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(0,0,0,0.1)',
+              transition: 'var(--transition-smooth)', position: 'relative'
+            }}>
+              {uploading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                  <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>Scanning with Gemini Vision...</span>
+                </div>
+              ) : (
+                <label style={{ cursor: 'pointer', display: 'block' }}>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleFileUpload} 
+                    style={{ display: 'none' }} 
+                  />
+                  <Upload size={24} style={{ color: 'var(--text-secondary)', marginBottom: '10px' }} />
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Click to Upload Photo</p>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Gemini Vision automatically classifies fabric, tags and formality profile
+                  </p>
+                </label>
+              )}
+            </div>
+          ) : (
+            <div style={{
+              border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '24px 16px', 
+              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(0,0,0,0.1)',
+              transition: 'var(--transition-smooth)', position: 'relative'
+            }}>
+              {uploading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: '#FFF' }}>
+                    <span style={{ fontWeight: videoStep === 1 ? '700' : '400', color: videoStep === 1 ? 'var(--accent)' : 'var(--text-muted)' }}>[1/4] Extracting Keyframes...</span>
+                    <span style={{ fontWeight: videoStep === 2 ? '700' : '400', color: videoStep === 2 ? 'var(--accent)' : 'var(--text-muted)' }}>[2/4] Gemini Vision Scanning...</span>
+                    <span style={{ fontWeight: videoStep === 3 ? '700' : '400', color: videoStep === 3 ? 'var(--accent)' : 'var(--text-muted)' }}>[3/4] Reconstructing 3D Mesh...</span>
+                    <span style={{ fontWeight: videoStep === 4 ? '700' : '400', color: videoStep === 4 ? 'var(--accent)' : 'var(--text-muted)' }}>[4/4] Fitting to Mannequin...</span>
+                  </div>
+                </div>
+              ) : (
+                <label style={{ cursor: 'pointer', display: 'block' }}>
+                  <input 
+                    type="file" 
+                    accept="video/*" 
+                    onChange={handleVideoUpload} 
+                    style={{ display: 'none' }} 
+                  />
+                  <Video size={24} style={{ color: 'var(--text-secondary)', marginBottom: '10px' }} />
+                  <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Upload 10s hanger video</p>
+                  <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    360° rotation video allows frame-by-frame 3D model reconstruction
+                  </p>
+                </label>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Catalog Items Grid */}
@@ -213,7 +331,12 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
                     position: 'relative',
                     border: '1px solid var(--border-color)' 
                   }}>
-                    {item.image_data ? (
+                    {item.is_3d ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>👑</span>
+                        <span style={{ fontSize: '0.55rem', fontWeight: 700, color: 'var(--accent)' }}>3D MESH</span>
+                      </div>
+                    ) : item.image_data ? (
                       <img 
                         src={item.image_data} 
                         alt={item.name} 

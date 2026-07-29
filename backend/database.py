@@ -166,6 +166,9 @@ class EncryptedDatabase:
         admin_data = self._get_default_user_data()
         admin_data["password"] = "admin123"
         admin_data["role"] = "admin"
+        admin_data["name"] = "Administrator"
+        admin_data["birthday"] = "2000-01-01"
+        admin_data["gender"] = "male"
         return {
             "users": {
                 "admin": admin_data
@@ -184,7 +187,7 @@ class EncryptedDatabase:
             return None
         return self.data["users"].get(username)
 
-    def create_user(self, username: str, password: str) -> bool:
+    def create_user(self, username: str, password: str, name: Optional[str] = None, birthday: Optional[str] = None, gender: Optional[str] = None) -> bool:
         if self.is_cloud:
             # Check if user already exists
             if self.get_user(username):
@@ -194,6 +197,9 @@ class EncryptedDatabase:
                 payload = {
                     "username": username,
                     "password": password,
+                    "name": name or username,
+                    "birthday": birthday or "2000-01-01",
+                    "gender": gender or "male",
                     "role": "user",
                     "theme": "classic"
                 }
@@ -234,6 +240,9 @@ class EncryptedDatabase:
                 return False
             user_data = self._get_default_user_data()
             user_data["password"] = password
+            user_data["name"] = name or username
+            user_data["birthday"] = birthday or "2000-01-01"
+            user_data["gender"] = gender or "male"
             user_data["role"] = "user"
             self.data["users"][username] = user_data
             self.save()

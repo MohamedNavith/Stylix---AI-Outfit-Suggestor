@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Check, X, ThumbsUp, ThumbsDown, Shuffle, RefreshCw, Calendar, ArrowRight, ArrowLeft 
 } from 'lucide-react';
+import MannequinPreview from './MannequinPreview';
 
 export default function RoutinePlan({ apiHost, username, onStatsChange }) {
   const [plan, setPlan] = useState([]);
@@ -10,12 +11,30 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
   const [swapCategory, setSwapCategory] = useState('');
   const [cleanItems, setCleanItems] = useState([]);
   const [activeDayIdx, setActiveDayIdx] = useState(0);
+  const [userGender, setUserGender] = useState('male');
 
   const scrollRef = useRef(null);
 
   useEffect(() => {
     fetchPlan();
+    fetchUserProfile();
   }, [username]);
+
+  const fetchUserProfile = async () => {
+    if (!username) return;
+    try {
+      const res = await fetch(`${apiHost}/api/profile/update?username=${encodeURIComponent(username)}`); // settings check
+      // Or simply fetch profile directly
+      const profileRes = await fetch(`${apiHost}/api/auth/login`); // Fallback or mock endpoint
+      // We will read user data from local settings update endpoint or similar:
+      const resVal = await fetch(`${apiHost}/api/laundry?username=${encodeURIComponent(username)}`);
+      // Since backend login endpoints return user gender, let's load it from local storage
+      const cachedGender = localStorage.getItem('stylix_gender') || 'male';
+      setUserGender(cachedGender);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchPlan = async () => {
     if (!username) return;
@@ -125,13 +144,16 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
   const scrollToDay = (idx) => {
     setActiveDayIdx(idx);
     if (scrollRef.current) {
-      const cardWidth = 330; // wrapper flex base + gap
+      const cardWidth = 330; 
       scrollRef.current.scrollTo({
         left: idx * cardWidth,
         behavior: 'smooth'
       });
     }
   };
+
+  const activeDay = plan.find(d => d.day_index === activeDayIdx) || plan[0];
+  const activeOutfit = activeDay ? activeDay.assigned_outfit || [] : [];
 
   return (
     <div className="animate-fade-up" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -143,13 +165,13 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
           <div>
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
-              WEEK OF JUL 28 – AUG 2
+              Timeline Planner
             </span>
             <h2 style={{ fontSize: '1.85rem', fontWeight: 700, fontFamily: 'var(--font-sans)', marginTop: '4px', color: '#FFF' }}>
               Coordinated Planner
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
-              AI-curated 6-day outfit timeline
+              AI-curated weekly outfit timeline mapped onto moveable 3D mannequin
             </p>
           </div>
           
@@ -169,7 +191,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
           </button>
         </div>
 
-        {/* Calendar Day selector tabs - stagnant */}
+        {/* Calendar Day selector tabs */}
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '4px 0' }}>
           {plan.map((day, idx) => {
             const isActive = activeDayIdx === idx;
@@ -201,183 +223,170 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
 
       </div>
 
-      {/* 2. HORIZONTALLY SCROLLABLE DAYS TIMELINE */}
-      <div style={{ flexGrow: 1, overflowY: 'hidden', paddingTop: '20px' }}>
+      {/* 3D MANNEQUIN & TIMELINE CARDS SPLIT SECTION */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
         
-        {loading && plan.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
-            <RefreshCw className="animate-spin" size={28} style={{ color: 'var(--accent)' }} />
-            <p style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Scaffolding planner...</p>
-          </div>
-        ) : (
-          <div 
-            className="days-scroll-container" 
-            ref={scrollRef}
-            onScroll={(e) => {
-              // Estimate day card index based on scroll position to keep tab indicator synced
-              const idx = Math.round(e.currentTarget.scrollLeft / 330);
-              if (idx >= 0 && idx < plan.length && idx !== activeDayIdx) {
-                setActiveDayIdx(idx);
-              }
-            }}
-          >
-            {plan.map((day) => (
-              <div key={day.day_index} className="day-card-wrapper">
-                <div className="glass-panel" style={{ 
-                  padding: '20px', 
-                  height: '100%', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '14px',
-                  background: 'rgba(19, 17, 28, 0.95)',
-                  minHeight: '440px'
-                }}>
-                  {/* Card Date Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#FFF' }}>
-                        {day.day_name} • {day.date_label}
-                      </span>
-                      <span style={{ 
-                        fontSize: '0.65rem', 
-                        color: 'var(--accent)', 
-                        fontWeight: 700, 
-                        letterSpacing: '1px',
-                        textTransform: 'uppercase',
-                        marginTop: '3px'
-                      }}>
-                        {day.occasion}
-                      </span>
-                    </div>
-                    <span className={`chip ${day.status === 'Worn' || day.status === 'Swapped' ? 'chip-clean' : day.status === 'Skipped' ? 'chip-dirty' : ''}`} style={{ fontSize: '0.65rem' }}>
-                      {day.status}
+        {/* Left: 3D Moveable Toy/Mannequin */}
+        <div className="glass-panel" style={{ padding: '20px', background: 'rgba(19, 17, 28, 0.95)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#FFF', fontFamily: 'var(--font-mono)' }}>
+            3D Mannequin Combination Preview
+          </h3>
+          <MannequinPreview outfit={activeOutfit} gender={userGender} />
+        </div>
+
+        {/* Right: Selected Day Timeline Details */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {loading && plan.length === 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '200px' }}>
+              <RefreshCw className="animate-spin" size={28} style={{ color: 'var(--accent)' }} />
+              <p style={{ marginTop: '12px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Scaffolding planner...</p>
+            </div>
+          ) : (
+            activeDay && (
+              <div className="glass-panel" style={{ 
+                padding: '20px', 
+                background: 'rgba(19, 17, 28, 0.95)',
+                minHeight: '350px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '14px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#FFF' }}>
+                      {activeDay.day_name} • {activeDay.date_label}
+                    </span>
+                    <span style={{ 
+                      fontSize: '0.7rem', 
+                      color: 'var(--accent)', 
+                      fontWeight: 700, 
+                      letterSpacing: '1px',
+                      textTransform: 'uppercase',
+                      marginTop: '3px'
+                    }}>
+                      {activeDay.occasion}
                     </span>
                   </div>
-
-                  {/* Wardrobe selection items list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
-                    {day.assigned_outfit ? (
-                      day.assigned_outfit.map((item) => {
-                        // Map database category labels to design specific categories
-                        let label = item.category.toUpperCase();
-                        if (label === 'FOOTWEAR') label = 'SHOES';
-                        
-                        return (
-                          <div 
-                            key={item.id} 
-                            style={{ 
-                              background: '#13111C', 
-                              border: '1px solid rgba(255,255,255,0.03)', 
-                              borderRadius: '8px',
-                              padding: '10px 14px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div>
-                              <span style={{ 
-                                display: 'block', 
-                                fontSize: '0.6rem', 
-                                color: '#9F7AEA', // Light purple
-                                fontWeight: 700,
-                                letterSpacing: '0.05em',
-                                marginBottom: '2px'
-                              }}>
-                                {label}
-                              </span>
-                              <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontWeight: 500 }}>
-                                {item.name}
-                              </span>
-                            </div>
-                            
-                            {day.status === 'Planned' && (
-                              <button 
-                                onClick={() => openSwapModal(day.day_index, item.category)}
-                                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                                className="hover:text-accent"
-                              >
-                                <RefreshCw size={12} />
-                              </button>
-                            )}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                        No outfits generated. Click shuffle above to plan the week.
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Card action controls */}
-                  {day.status === 'Planned' && day.assigned_outfit && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
-                      <button 
-                        className="btn-secondary" 
-                        onClick={() => handleConfirmWorn(day.day_index, 'thumbsup')}
-                        style={{ padding: '8px 10px', fontSize: '0.75rem', gap: '4px' }}
-                      >
-                        <RefreshCw size={12} /> SWAP
-                      </button>
-                      
-                      <button 
-                        onClick={() => handleConfirmWorn(day.day_index, 'thumbsup')}
-                        style={{ 
-                          background: 'rgba(16, 185, 129, 0.05)', 
-                          border: '1px solid rgba(16, 185, 129, 0.2)', 
-                          color: '#10B981', 
-                          borderRadius: '8px', 
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Love Outfit"
-                      >
-                        <ThumbsUp size={14} />
-                      </button>
-                      
-                      <button 
-                        onClick={() => handleConfirmWorn(day.day_index, 'thumbsdown')}
-                        style={{ 
-                          background: 'rgba(239, 68, 68, 0.05)', 
-                          border: '1px solid rgba(239, 68, 68, 0.2)', 
-                          color: '#EF4444', 
-                          borderRadius: '8px', 
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        title="Dislike Outfit"
-                      >
-                        <ThumbsDown size={14} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Confirmed display */}
-                  {(day.status === 'Worn' || day.status === 'Swapped') && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--accent)', justifyContent: 'center', marginTop: 'auto', paddingTop: '10px' }}>
-                      <Check size={12} />
-                      <span>Items sent to wash rotation</span>
-                      {day.rating === 'thumbsup' ? <ThumbsUp size={12} style={{ marginLeft: '4px' }} /> : day.rating === 'thumbsdown' ? <ThumbsDown size={12} style={{ marginLeft: '4px' }} /> : null}
-                    </div>
-                  )}
-
-                  {day.status === 'Skipped' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#EF4444', justifyContent: 'center', marginTop: 'auto', paddingTop: '10px' }}>
-                      <X size={12} />
-                      <span>Skipped. Preferences adjusted.</span>
-                    </div>
-                  )}
-
+                  <span className={`chip ${activeDay.status === 'Worn' || activeDay.status === 'Swapped' ? 'chip-clean' : activeDay.status === 'Skipped' ? 'chip-dirty' : ''}`} style={{ fontSize: '0.65rem' }}>
+                    {activeDay.status}
+                  </span>
                 </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
+                  {activeDay.assigned_outfit && activeDay.assigned_outfit.length > 0 ? (
+                    activeDay.assigned_outfit.map((item) => {
+                      let label = item.category.toUpperCase();
+                      if (label === 'FOOTWEAR') label = 'SHOES';
+                      
+                      return (
+                        <div 
+                          key={item.id} 
+                          style={{ 
+                            background: '#13111C', 
+                            border: '1px solid rgba(255,255,255,0.03)', 
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}
+                        >
+                          <div>
+                            <span style={{ 
+                              display: 'block', 
+                              fontSize: '0.6rem', 
+                              color: '#9F7AEA', 
+                              fontWeight: 700,
+                              letterSpacing: '0.05em',
+                              marginBottom: '2px'
+                            }}>
+                              {label}
+                            </span>
+                            <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontWeight: 500 }}>
+                              {item.name}
+                            </span>
+                          </div>
+                          
+                          {activeDay.status === 'Planned' && (
+                            <button 
+                              onClick={() => openSwapModal(activeDay.day_index, item.category)}
+                              style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                              className="hover:text-accent"
+                            >
+                              <RefreshCw size={12} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                      No outfits generated. Click shuffle above to plan.
+                    </div>
+                  )}
+                </div>
+
+                {activeDay.status === 'Planned' && activeDay.assigned_outfit && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
+                    <button 
+                      className="btn-secondary" 
+                      onClick={() => handleConfirmWorn(activeDay.day_index, 'thumbsup')}
+                      style={{ padding: '8px 10px', fontSize: '0.75rem', gap: '4px' }}
+                    >
+                      <RefreshCw size={12} /> WORN
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleConfirmWorn(activeDay.day_index, 'thumbsup')}
+                      style={{ 
+                        background: 'rgba(16, 185, 129, 0.05)', 
+                        border: '1px solid rgba(16, 185, 129, 0.2)', 
+                        color: '#10B981', 
+                        borderRadius: '8px', 
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <ThumbsUp size={14} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => handleSkip(activeDay.day_index)}
+                      style={{ 
+                        background: 'rgba(239, 68, 68, 0.05)', 
+                        border: '1px solid rgba(239, 68, 68, 0.2)', 
+                        color: '#EF4444', 
+                        borderRadius: '8px', 
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <ThumbsDown size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {(activeDay.status === 'Worn' || activeDay.status === 'Swapped') && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--accent)', justifyContent: 'center', marginTop: 'auto', paddingTop: '10px' }}>
+                    <Check size={12} />
+                    <span>Outfit worn. Items sent to wash rotation</span>
+                  </div>
+                )}
+
+                {activeDay.status === 'Skipped' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#EF4444', justifyContent: 'center', marginTop: 'auto', paddingTop: '10px' }}>
+                    <X size={12} />
+                    <span>Skipped. Adjusted style preferences.</span>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        )}
+            )
+          )}
+        </div>
 
       </div>
 

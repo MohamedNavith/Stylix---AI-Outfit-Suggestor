@@ -2,6 +2,9 @@
 CREATE TABLE IF NOT EXISTS public.stylix_users (
     username text PRIMARY KEY,
     password text NOT NULL,
+    name text,
+    birthday text,
+    gender text,
     email text,
     mobile text,
     theme text DEFAULT 'classic',
@@ -69,6 +72,6 @@ ALTER TABLE public.routine_plans DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_history DISABLE ROW LEVEL SECURITY;
 
 -- Pre-populate the super admin account
-INSERT INTO public.stylix_users (username, password, role)
-VALUES ('admin', 'admin123', 'admin')
+INSERT INTO public.stylix_users (username, password, name, birthday, gender, role)
+VALUES ('admin', 'admin123', 'Administrator', '2000-01-01', 'male', 'admin')
 ON CONFLICT (username) DO NOTHING;

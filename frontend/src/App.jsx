@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, Layers, Droplet, Send, Sparkles, LogOut, 
-  Settings, User, Check, X, Shield, RefreshCw, Cpu
+  Settings, User, Check, X, Shield, RefreshCw, Cpu, Cake
 } from 'lucide-react';
 import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
@@ -30,6 +30,14 @@ export default function App() {
   const [theme, setTheme] = useState(localStorage.getItem('stylix_theme') || 'classic');
   const [laundryStatsTrigger, setLaundryStatsTrigger] = useState(0);
   
+  // Onboarding / Sign up attributes
+  const [nameInput, setNameInput] = useState('');
+  const [birthdayInput, setBirthdayInput] = useState('');
+  const [genderInput, setGenderInput] = useState('male');
+  
+  // Birthday Alert Notification
+  const [birthdayAlert, setBirthdayAlert] = useState(null);
+
   // Auth Form State
   const [isLogin, setIsLogin] = useState(true);
   const [usernameInput, setUsernameInput] = useState('');
@@ -39,6 +47,9 @@ export default function App() {
 
   // Profile Settings Modal State
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsName, setSettingsName] = useState('');
+  const [settingsBirthday, setSettingsBirthday] = useState('');
+  const [settingsGender, setSettingsGender] = useState('male');
   const [settingsEmail, setSettingsEmail] = useState('');
   const [settingsMobile, setSettingsMobile] = useState('');
   const [settingsPassword, setSettingsPassword] = useState('');
@@ -55,8 +66,8 @@ export default function App() {
 
   useEffect(() => {
     if (currentUser) {
-      // Re-apply theme configuration saved
       changeTheme(theme);
+      checkBirthdayAlert();
     }
   }, [currentUser]);
 
@@ -66,12 +77,25 @@ export default function App() {
     }
   }, [chatMessages, showChat]);
 
-  // Load chat history from backend on chat drawer open
   useEffect(() => {
     if (showChat && currentUser) {
       fetchChatHistory();
     }
   }, [showChat, currentUser]);
+
+  const checkBirthdayAlert = async () => {
+    try {
+      const res = await fetch(`${API_HOST}/api/notifications/birthday?username=${encodeURIComponent(currentUser)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.is_birthday) {
+          setBirthdayAlert(data.message);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchChatHistory = async () => {
     try {
@@ -82,7 +106,7 @@ export default function App() {
           setChatMessages(data);
         } else {
           setChatMessages([
-            { sender: 'assistant', text: `Welcome back, @${currentUser}! I'm your Stylix AI coach. Ask me what clean clothes you have or get outfit recommendations!` }
+            { sender: 'assistant', text: `Welcome back, ${localStorage.getItem('stylix_name') || currentUser}! I'm your Stylix AI coach. Ask me what clean clothes you have or get outfit recommendations!` }
           ]);
         }
       }
@@ -101,12 +125,21 @@ export default function App() {
     setAuthLoading(true);
     
     const endpoint = isLogin ? "/api/auth/login" : "/api/auth/signup";
+    const payload = isLogin 
+      ? { username: usernameInput, password: passwordInput }
+      : { 
+          username: usernameInput, 
+          password: passwordInput,
+          name: nameInput || usernameInput,
+          birthday: birthdayInput || "2000-01-01",
+          gender: genderInput
+        };
     
     try {
       const res = await fetch(`${API_HOST}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: usernameInput, password: passwordInput })
+        body: JSON.stringify(payload)
       });
       
       const data = await res.json();
@@ -115,9 +148,16 @@ export default function App() {
           localStorage.setItem('stylix_user', data.username);
           localStorage.setItem('stylix_role', data.role);
           localStorage.setItem('stylix_theme', data.theme || 'classic');
+          localStorage.setItem('stylix_gender', data.gender || 'male');
+          localStorage.setItem('stylix_name', data.name || data.username);
+          localStorage.setItem('stylix_birthday', data.birthday || '2000-01-01');
+
           setCurrentUser(data.username);
           setUserRole(data.role);
           setTheme(data.theme || 'classic');
+          setSettingsName(data.name || data.username);
+          setSettingsBirthday(data.birthday || '2000-01-01');
+          setSettingsGender(data.gender || 'male');
           setSettingsEmail(data.email || '');
           setSettingsMobile(data.mobile || '');
           setWhatsappLinked(data.whatsapp_linked || false);
@@ -125,7 +165,7 @@ export default function App() {
         } else {
           alert("Account created! Please sign in.");
           setIsLogin(true);
-          setUsernameInput(data.username || usernameInput);
+          setUsernameInput(usernameInput);
           setPasswordInput('');
         }
       } else {
@@ -143,8 +183,12 @@ export default function App() {
     localStorage.removeItem('stylix_user');
     localStorage.removeItem('stylix_role');
     localStorage.removeItem('stylix_theme');
+    localStorage.removeItem('stylix_gender');
+    localStorage.removeItem('stylix_name');
+    localStorage.removeItem('stylix_birthday');
     setCurrentUser('');
     setUserRole('');
+    setBirthdayAlert(null);
     setShowSettings(false);
   };
 
@@ -153,6 +197,9 @@ export default function App() {
     setSettingsSaving(true);
     try {
       const updates = {
+        name: settingsName,
+        birthday: settingsBirthday,
+        gender: settingsGender,
         email: settingsEmail,
         mobile: settingsMobile,
         theme: theme,
@@ -169,6 +216,9 @@ export default function App() {
         body: JSON.stringify(updates)
       });
       if (res.ok) {
+        localStorage.setItem('stylix_name', settingsName);
+        localStorage.setItem('stylix_gender', settingsGender);
+        localStorage.setItem('stylix_birthday', settingsBirthday);
         alert("Settings saved successfully!");
         setSettingsPassword('');
         setShowSettings(false);
@@ -237,14 +287,14 @@ export default function App() {
         <div className="app-bg-overlay" />
         <div className="glowing-blob" />
 
-        <div className="glass-panel animate-scale" style={{ width: '100%', maxWidth: '400px', padding: '32px' }}>
+        <div className="glass-panel animate-scale" style={{ width: '100%', maxWidth: '440px', padding: '32px' }}>
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
             <div style={{ display: 'inline-flex', marginBottom: '12px' }}>
               <StylixLogo size={48} />
             </div>
             <h2 style={{ fontSize: '1.6rem', fontWeight: 800, fontFamily: 'var(--font-sans)', color: '#FFF' }}>Stylix</h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '4px' }}>
-              Real-time multi-agent wardrobe planning
+              Real-time multi-agent wardrobe planning & 3D styling
             </p>
           </div>
 
@@ -260,6 +310,59 @@ export default function App() {
           )}
 
           <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {!isLogin && (
+              <>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Full Name</label>
+                  <input 
+                    type="text" 
+                    className="form-input" 
+                    placeholder="Enter full name"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    disabled={authLoading}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Birthday</label>
+                  <input 
+                    type="date" 
+                    className="form-input" 
+                    value={birthdayInput}
+                    onChange={(e) => setBirthdayInput(e.target.value)}
+                    disabled={authLoading}
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Gender</label>
+                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input 
+                        type="radio" 
+                        name="gender" 
+                        value="male" 
+                        checked={genderInput === 'male'} 
+                        onChange={() => setGenderInput('male')}
+                        style={{ accentColor: 'var(--accent)' }}
+                      /> Male
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                      <input 
+                        type="radio" 
+                        name="gender" 
+                        value="female" 
+                        checked={genderInput === 'female'} 
+                        onChange={() => setGenderInput('female')}
+                        style={{ accentColor: 'var(--accent)' }}
+                      /> Female
+                    </label>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Username</label>
               <input 
@@ -285,7 +388,7 @@ export default function App() {
             </div>
 
             <button type="submit" className="btn-primary" style={{ marginTop: '8px', background: 'linear-gradient(135deg, #B794F4 0%, #805AD5 100%)', color: 'white' }}>
-              {authLoading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Sign Up'}
+              {authLoading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Complete Registration'}
             </button>
           </form>
 
@@ -298,19 +401,21 @@ export default function App() {
             </span>
           </div>
 
-          <div style={{ 
-            marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', 
-            textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' 
-          }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Super Admin Account</span>
-            <button 
-              onClick={quickFillAdmin} 
-              className="btn-secondary" 
-              style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
-            >
-              Fill Admin Credentials
-            </button>
-          </div>
+          {isLogin && (
+            <div style={{ 
+              marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', 
+              textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' 
+            }}>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Super Admin Account</span>
+              <button 
+                onClick={quickFillAdmin} 
+                className="btn-secondary" 
+                style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
+              >
+                Fill Admin Credentials
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -339,7 +444,7 @@ export default function App() {
           <StylixLogo size={36} />
           <div>
             <h1 style={{ fontSize: '1.35rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#FFF' }}>Stylix</h1>
-            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Real-time Coordinated</span>
+            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '1px' }}>Consolidated Engine</span>
           </div>
         </div>
 
@@ -383,40 +488,27 @@ export default function App() {
           </button>
         </nav>
 
-        {/* AI AGENT MONITORING SYSTEM HEARTBEAT */}
+        {/* Consolidated Agent Heartbeats */}
         <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Cpu size={16} style={{ color: 'var(--accent)' }} />
             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              System Heartbeat
+              Consolidated Engine
             </span>
           </div>
 
-          {/* Central Pulsing Heart (Orchestrator) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(0,0,0,0.15)', padding: '10px', borderRadius: '8px' }}>
-            <div className="heartbeat-container" style={{ animation: 'pulsate 1.2s infinite ease-in-out' }}>
-              ❤️
-            </div>
-            <div>
-              <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#FFF' }}>Coordinator Agent</span>
-              <span style={{ fontSize: '0.65rem', color: '#10B981', fontWeight: 600 }}>Active Orchestrating</span>
-            </div>
-          </div>
-
-          {/* Breathing dots for secondary agents */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.7rem' }}>
             {[
-              "Context Agent", "Style Agent", "Cataloging Agent", 
-              "Outfit Matcher", "Feedback Agent", "Laundry Agent"
+              "Coordinator Agent", "Stylist Agent", "Wardrobe Agent"
             ].map(agent => (
               <div key={agent} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>{agent}</span>
+                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{agent}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div className="breathing-dot" style={{
                     width: '6px', height: '6px', borderRadius: '50%', background: '#10B981',
                     boxShadow: '0 0 8px #10B981', animation: 'breath 2s infinite ease-in-out'
                   }} />
-                  <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6rem' }}>Standby</span>
+                  <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6rem' }}>ACTIVE</span>
                 </div>
               </div>
             ))}
@@ -445,7 +537,7 @@ export default function App() {
           alignItems: 'center'
         }}>
           <div>
-            <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Real-time Stylix Cloud Engine</h2>
+            <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stylix 24/7 Wardrobe Orchestrator</h2>
           </div>
 
           {/* Profile Details Trigger (Top Right) */}
@@ -463,7 +555,7 @@ export default function App() {
                 <User size={18} />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFF' }}>@{currentUser}</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFF' }}>{localStorage.getItem('stylix_name') || currentUser}</span>
                 <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Settings</span>
               </div>
             </div>
@@ -484,6 +576,40 @@ export default function App() {
 
         {/* Content body */}
         <main style={{ flexGrow: 1, padding: '24px 32px 40px 32px', maxWidth: '1000px', width: '100%', alignSelf: 'center' }}>
+          
+          {/* Birthday celebration card banner */}
+          {birthdayAlert && (
+            <div className="glass-panel animate-scale" style={{
+              padding: '16px 20px',
+              background: 'linear-gradient(135deg, rgba(183, 148, 244, 0.2) 0%, rgba(128, 90, 213, 0.05) 100%)',
+              border: '1px solid var(--border-accent)',
+              borderRadius: '14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '20px',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  background: 'var(--accent)', color: 'var(--bg-primary)', padding: '8px', borderRadius: '50%'
+                }}>
+                  <Cake size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontWeight: 700, color: '#FFF', fontSize: '0.95rem' }}>It's Your Special Day!</h4>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>{birthdayAlert}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBirthdayAlert(null)}
+                style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           {activeTab === 'dashboard' && <RoutinePlan apiHost={API_HOST} username={currentUser} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
           {activeTab === 'catalog' && <WardrobeCatalog apiHost={API_HOST} username={currentUser} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
           {activeTab === 'laundry' && <LaundryHub apiHost={API_HOST} username={currentUser} stats={laundryStatsTrigger} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
@@ -517,7 +643,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Messages body */}
           <div style={{ flexGrow: 1, padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {chatMessages.map((msg, index) => {
               const isUser = msg.sender === 'user';
@@ -603,10 +728,53 @@ export default function App() {
               </button>
             </div>
 
-            {/* Account Settings */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Account Profile</span>
               
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Full Name</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={settingsName}
+                  onChange={(e) => setSettingsName(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Birthday</label>
+                <input 
+                  type="date" 
+                  className="form-input" 
+                  value={settingsBirthday}
+                  onChange={(e) => setSettingsBirthday(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Gender</label>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="settingsGender" 
+                      value="male" 
+                      checked={settingsGender === 'male'} 
+                      onChange={() => setSettingsGender('male')}
+                    /> Male
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input 
+                      type="radio" 
+                      name="settingsGender" 
+                      value="female" 
+                      checked={settingsGender === 'female'} 
+                      onChange={() => setSettingsGender('female')}
+                    /> Female
+                  </label>
+                </div>
+              </div>
+
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Email Address</label>
                 <input 
@@ -641,11 +809,10 @@ export default function App() {
               </div>
             </div>
 
-            {/* Messaging Link Integration */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Messaging integrations</span>
               
-              <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ flexGrow: 1 }}>
                   <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>WhatsApp Link</span>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Chat with wardrobe via WhatsApp</span>
@@ -658,15 +825,10 @@ export default function App() {
                 />
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyBetween: 'space-between', gap: '12px', marginTop: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginTop: '6px' }}>
                 <div style={{ flexGrow: 1 }}>
                   <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>Telegram Link</span>
                   <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Sync wardrobe queries with Telegram Bot</span>
-                  {telegramLinked && (
-                    <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--accent)', marginTop: '4px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
-                      Instructions: Message <code>/start {currentUser}</code> to <code>@StylixStylistBot</code> to link bot.
-                    </span>
-                  )}
                 </div>
                 <input 
                   type="checkbox" 
@@ -700,7 +862,6 @@ export default function App() {
         </div>
       )}
 
-      {/* 6. STYLE CUSTOM CSS WRAPPERS FOR PULSATING/BREATHING SYMBOLS */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes pulsate {
           0% { transform: scale(1); }
