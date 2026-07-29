@@ -364,35 +364,35 @@ class StylistAgent:
             "Avoid meta-language. Respond in a helpful, direct tone."
         )
 
-        # 1. Try Grok (xAI) API
+        # 1. Try Groq (groq.com) API
         try:
-            from config_keys import DEFAULT_GROK_API_KEY
+            from config_keys import DEFAULT_GROQ_API_KEY
         except ImportError:
-            DEFAULT_GROK_API_KEY = ""
-        grok_key = os.environ.get("GROK_API_KEY") or DEFAULT_GROK_API_KEY
-        if grok_key:
+            DEFAULT_GROQ_API_KEY = ""
+        groq_key = os.environ.get("GROQ_API_KEY") or DEFAULT_GROQ_API_KEY
+        if groq_key:
             try:
                 import httpx
                 headers = {
-                    "Authorization": f"Bearer {grok_key}",
+                    "Authorization": f"Bearer {groq_key}",
                     "Content-Type": "application/json"
                 }
                 payload = {
-                    "model": "grok-beta",
+                    "model": "llama-3.3-70b-versatile",
                     "messages": [
                         {"role": "system", "content": system_instruction},
                         {"role": "user", "content": message}
                     ],
                     "temperature": 0.7
                 }
-                res = httpx.post("https://api.x.ai/v1/chat/completions", json=payload, headers=headers, timeout=20.0)
+                res = httpx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=20.0)
                 if res.status_code == 200:
                     reply = res.json()["choices"][0]["message"]["content"].strip()
-                    print("Grok Chatbot response generated successfully.")
+                    print("Groq Chatbot response generated successfully.")
                 else:
-                    print(f"Grok API returned error: {res.status_code} - {res.text}")
+                    print(f"Groq API returned error: {res.status_code} - {res.text}")
             except Exception as e:
-                print(f"Grok API call failed: {e}")
+                print(f"Groq API call failed: {e}")
 
         # 2. Fallback to Gemini API
         if not reply:
