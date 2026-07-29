@@ -20,11 +20,11 @@ services:
   # 2. React Vite Frontend Static Site (Static Site)
   - type: web
     name: stylix-frontend
-    env: static
+    runtime: static
     plan: free
     rootDir: frontend
     buildCommand: npm run build
-    publishDir: dist
+    staticPublishPath: dist
     envVars:
       - key: VITE_API_URL
         fromService:
