@@ -1,5 +1,5 @@
 services:
-  # 1. FastAPI Python Backend Service
+  # 1. FastAPI Python Backend Service (Web Service)
   - type: web
     name: stylix-backend
     env: python
@@ -9,7 +9,7 @@ services:
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: SUPABASE_URL
-        sync: false # Set this in the Render dashboard env settings
+        sync: false
       - key: SUPABASE_PUBLISHABLE_KEY
         sync: false
       - key: SUPABASE_KEY
@@ -17,14 +17,13 @@ services:
       - key: GEMINI_API_KEY
         sync: false
 
-  # 2. React Vite Frontend Static Site
-  - type: web
+  # 2. React Vite Frontend Static Site (Static Site)
+  - type: static
     name: stylix-frontend
-    env: static
     plan: free
     rootDir: frontend
     buildCommand: npm run build
     publishDir: dist
     envVars:
       - key: VITE_API_URL
-        sync: false # Point this to your stylix-backend URL once deployed
+        sync: false
