@@ -632,6 +632,69 @@ async def telegram_webhook(request: Request):
             reply_text = "Your Telegram is not linked to a Stylix account. Please type: /start <your_username> to connect."
             await send_telegram_message(chat_id, reply_text)
             return {"status": "unlinked"}
+
+        # Handle explicit commands
+        if text == "/help":
+            reply_text = (
+                "👋 Welcome to Stylix! I'm your AI Wardrobe assistant. Here's what you can do:\n\n"
+                "🔹 **Commands**:\n"
+                "• /recommend - Get personalized daily outfit suggestions\n"
+                "• /laundry - Check your current laundry status\n"
+                "• /wash - Reset and mark all laundry as clean\n"
+                "• /start <username> - Re-link your account\n\n"
+                "📸 **Garment Cataloging**: Send me a photo of a garment and reply to it with a brief description (e.g., 'white shirt') to auto-catalog it into your wardrobe!\n\n"
+                "🎤 **Voice Assistant**: Send me a voice note asking styling advice (e.g. 'what should I wear today?'), and I will reply with voice!"
+            )
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "help_sent"}
+
+        elif text == "/recommend":
+            try:
+                username = user["username"]
+                plan = coordinator.generate_weekly_cycle(username)
+                reply_text = "✨ **Your Outfits for the Week**:\n\n"
+                days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                if plan:
+                    for i, day_plan in enumerate(plan):
+                        day_name = days[i] if i < len(days) else f"Day {i+1}"
+                        items = day_plan.get("outfit", [])
+                        item_names = [f"• {item.get('name', 'Item')}" for item in items]
+                        reply_text += f"📅 **{day_name}**:\n" + "\n".join(item_names) + "\n\n"
+                else:
+                    reply_text = "I couldn't generate a plan. Make sure you have cataloged clothes in your wardrobe!"
+            except Exception as e:
+                reply_text = f"Error generating recommendations: {e}"
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "recommend_sent"}
+
+        elif text == "/laundry":
+            username = user["username"]
+            try:
+                stats = coordinator.wardrobe_agent.get_laundry_stats(username)
+                total = stats.get("total_items", 0)
+                dirty = stats.get("dirty_items", 0)
+                clean = total - dirty
+                reply_text = (
+                    "🧺 **Stylix Laundry Hub**:\n\n"
+                    f"🟢 Clean items: **{clean}**\n"
+                    f"🔴 Dirty items: **{dirty}**\n"
+                    f"📊 Total cataloged: **{total}**\n\n"
+                    "Use /wash when you do laundry to reset all dirty garments to clean."
+                )
+            except Exception as e:
+                reply_text = f"Error fetching laundry stats: {e}"
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "laundry_sent"}
+
+        elif text == "/wash":
+            username = user["username"]
+            try:
+                cleaned_count = coordinator.wardrobe_agent.clean_all_dirty_items(username)
+                reply_text = f"🧺 **Laundry Completed!**\n\nReset all **{cleaned_count}** dirty items back to clean status. Your closet is ready for fresh outfit suggestions!"
+            except Exception as e:
+                reply_text = f"Error running laundry cycle: {e}"
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "wash_sent"}
             
         # Check if replying to a photo or if there is a pending photo description
         if chat_id in pending_photos:
