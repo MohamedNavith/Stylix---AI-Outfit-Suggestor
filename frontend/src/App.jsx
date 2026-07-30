@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, Layers, Droplet, Send, Sparkles, LogOut, 
-  Settings, User, Check, X, Shield, RefreshCw, Cpu, Cake
+  Settings, User, Check, X, Shield, RefreshCw, Cpu, Cake,
+  Mic, MicOff, Volume2, VolumeX
 } from 'lucide-react';
 import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
@@ -44,12 +45,32 @@ function StylixLogo({ size = 32 }) {
   );
 }
 
+const setCookie = (name, value, days = 365) => {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+};
+
+const getCookie = (name) => {
+  return document.cookie.split('; ').reduce((r, v) => {
+    const parts = v.split('=');
+    return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+  }, '');
+};
+
+const removeCookie = (name) => {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+};
+
 export default function App() {
-  const [currentUser, setCurrentUser] = useState(localStorage.getItem('stylix_user') || '');
-  const [userRole, setUserRole] = useState(localStorage.getItem('stylix_role') || '');
+  const [currentUser, setCurrentUser] = useState(localStorage.getItem('stylix_user') || getCookie('stylix_user') || '');
+  const [userRole, setUserRole] = useState(localStorage.getItem('stylix_role') || getCookie('stylix_role') || '');
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [theme, setTheme] = useState(localStorage.getItem('stylix_theme') || 'classic');
+  const [theme, setTheme] = useState(localStorage.getItem('stylix_theme') || getCookie('stylix_theme') || 'classic');
   const [laundryStatsTrigger, setLaundryStatsTrigger] = useState(0);
+  
+  // Voice Synthesis and Speech Recognition states
+  const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(localStorage.getItem('stylix_voice_enabled') === 'true' || getCookie('stylix_voice_enabled') === 'true');
   
   // Onboarding / Sign up attributes
   const [nameInput, setNameInput] = useState('');
@@ -258,6 +279,13 @@ export default function App() {
           localStorage.setItem('stylix_name', data.name || data.username);
           localStorage.setItem('stylix_birthday', data.birthday || '2000-01-01');
 
+          setCookie('stylix_user', data.username);
+          setCookie('stylix_role', data.role);
+          setCookie('stylix_theme', data.theme || 'classic');
+          setCookie('stylix_gender', data.gender || 'male');
+          setCookie('stylix_name', data.name || data.username);
+          setCookie('stylix_birthday', data.birthday || '2000-01-01');
+
           setCurrentUser(data.username);
           setUserRole(data.role);
           setTheme(data.theme || 'classic');
@@ -292,6 +320,15 @@ export default function App() {
     localStorage.removeItem('stylix_gender');
     localStorage.removeItem('stylix_name');
     localStorage.removeItem('stylix_birthday');
+    
+    removeCookie('stylix_user');
+    removeCookie('stylix_role');
+    removeCookie('stylix_theme');
+    removeCookie('stylix_gender');
+    removeCookie('stylix_name');
+    removeCookie('stylix_birthday');
+    removeCookie('stylix_voice_enabled');
+
     setCurrentUser('');
     setUserRole('');
     setBirthdayAlert(null);
@@ -325,6 +362,11 @@ export default function App() {
         localStorage.setItem('stylix_name', settingsName);
         localStorage.setItem('stylix_gender', settingsGender);
         localStorage.setItem('stylix_birthday', settingsBirthday);
+        
+        setCookie('stylix_name', settingsName);
+        setCookie('stylix_gender', settingsGender);
+        setCookie('stylix_birthday', settingsBirthday);
+
         alert("Settings saved successfully!");
         setSettingsPassword('');
         setShowSettings(false);
@@ -335,6 +377,56 @@ export default function App() {
       console.error(err);
     } finally {
       setSettingsSaving(false);
+    }
+  };
+
+  const startSpeechRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported on this browser or webview. Try Google Chrome!");
+      return;
+    }
+
+    if (isListening) {
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    // Auto-resolve locale, support dynamic multilingual voice
+    recognition.lang = localStorage.getItem('stylix_lang') || navigator.language || 'en-US';
+    
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setChatInput(transcript);
+    };
+    
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+    
+    recognition.start();
+  };
+
+  const toggleVoicePlayback = () => {
+    const nextVal = !voiceEnabled;
+    setVoiceEnabled(nextVal);
+    localStorage.setItem('stylix_voice_enabled', nextVal ? 'true' : 'false');
+    setCookie('stylix_voice_enabled', nextVal ? 'true' : 'false');
+    if (!nextVal && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
     }
   };
 
@@ -356,6 +448,17 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setChatMessages(prev => [...prev, { sender: 'assistant', text: data.response }]);
+        
+        // Dynamic Speech Synthesis (speak responses aloud if enabled)
+        if (voiceEnabled && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          const cleanText = data.response
+            .replace(/\*\*(.*?)\*\*/g, "$1")
+            .replace(/[*#`_\-]/g, "")
+            .replace(/•/g, "");
+          const utterance = new SpeechSynthesisUtterance(cleanText);
+          window.speechSynthesis.speak(utterance);
+        }
       } else {
         setChatMessages(prev => [...prev, { sender: 'assistant', text: "Sorry, I encountered an error linking to my style database." }]);
       }
@@ -370,6 +473,7 @@ export default function App() {
   const changeTheme = (newTheme) => {
     setTheme(newTheme);
     localStorage.setItem('stylix_theme', newTheme);
+    setCookie('stylix_theme', newTheme);
     if (newTheme === 'classic') {
       document.documentElement.removeAttribute('data-theme');
     } else {
@@ -969,6 +1073,22 @@ export default function App() {
               <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Stylix AI Stylist</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <button 
+                type="button"
+                onClick={toggleVoicePlayback} 
+                title={voiceEnabled ? "Mute Voice Responses" : "Unmute Voice Responses"}
+                style={{ 
+                  background: 'transparent', 
+                  border: 'none', 
+                  color: '#FFF', 
+                  cursor: 'pointer', 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  opacity: voiceEnabled ? 1 : 0.6
+                }}
+              >
+                {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+              </button>
               {!isMobile && (
                 <a 
                   href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
@@ -1059,18 +1179,34 @@ export default function App() {
             <div ref={chatEndRef} />
           </div>
 
-          <form onSubmit={handleSendChatMessage} style={{ display: 'flex', padding: '10px', borderTop: '1px solid var(--border-color)', gap: '8px' }}>
+          <form onSubmit={handleSendChatMessage} style={{ display: 'flex', padding: '10px', borderTop: '1px solid var(--border-color)', gap: '8px', alignItems: 'center' }}>
             <input 
               type="text" 
-              placeholder="Ask Stylix AI..." 
+              placeholder={isListening ? "Listening..." : "Ask Stylix AI..."} 
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               disabled={chatLoading}
               style={{
                 flexGrow: 1, border: '1px solid var(--border-color)', borderRadius: '8px', 
-                padding: '8px 12px', fontSize: '0.85rem', background: 'rgba(0,0,0,0.2)', color: '#FFF', outline: 'none'
+                padding: '8px 12px', fontSize: '0.85rem', background: isListening ? 'rgba(239, 68, 68, 0.1)' : 'rgba(0,0,0,0.2)', 
+                color: '#FFF', outline: 'none', borderColor: isListening ? '#EF4444' : 'var(--border-color)',
+                transition: 'all 0.3s'
               }}
             />
+            <button
+              type="button"
+              onClick={startSpeechRecognition}
+              title={isListening ? "Stop listening" : "Start voice access"}
+              style={{
+                width: '36px', height: '36px', borderRadius: '8px', 
+                background: isListening ? '#EF4444' : 'rgba(255,255,255,0.05)', 
+                color: isListening ? '#FFF' : 'var(--text-primary)', 
+                border: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                transition: 'all 0.3s'
+              }}
+            >
+              {isListening ? <MicOff size={14} /> : <Mic size={14} />}
+            </button>
             <button 
               type="submit" 
               style={{

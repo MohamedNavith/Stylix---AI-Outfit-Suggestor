@@ -476,6 +476,39 @@ async def telegram_webhook(request: Request):
         msg = data["message"]
         chat_id = str(msg["chat"]["id"])
         
+        # Handle incoming voice messages
+        if "voice" in msg:
+            voice = msg["voice"]
+            file_id = voice["file_id"]
+            
+            user = db.get_user_by_telegram_chat_id(chat_id)
+            if not user:
+                await send_telegram_message(chat_id, "Your Telegram is not linked to a Stylix account. Please type: /start <your_username> to connect.")
+                return {"status": "unlinked"}
+            
+            try:
+                audio_bytes = await download_telegram_file(file_id)
+                if not audio_bytes:
+                    await send_telegram_message(chat_id, "⚠️ Failed to download your voice message.")
+                    return {"status": "download_failed"}
+                
+                transcription_text = await transcribe_audio_with_groq(audio_bytes, "voice.ogg")
+                if transcription_text:
+                    await send_telegram_message(chat_id, f"🎤 You said: \"{transcription_text}\"")
+                    
+                    username = user["username"]
+                    reply_text = coordinator.stylist_agent.chat_with_stylist(username, transcription_text)
+                    
+                    await send_telegram_voice_message(chat_id, reply_text)
+                    return {"status": "voice_ok"}
+                else:
+                    await send_telegram_message(chat_id, "⚠️ Sorry, I could not transcribe your voice message. Please try speaking clearly.")
+                    return {"status": "transcription_failed"}
+            except Exception as e:
+                print(f"Failed to handle Telegram voice: {e}")
+                await send_telegram_message(chat_id, f"Error processing voice message: {e}")
+                return {"status": "voice_error"}
+        
         # 1. Handle incoming photos
         if "photo" in msg:
             photo_arr = msg["photo"]
@@ -561,6 +594,90 @@ async def send_telegram_message(chat_id: str, text: str):
     payload = {"chat_id": chat_id, "text": text}
     async with httpx.AsyncClient() as client:
         await client.post(url, json=payload)
+
+async def transcribe_audio_with_groq(audio_bytes: bytes, file_name: str) -> str:
+    try:
+        from config_keys import DEFAULT_GROQ_API_KEY
+    except ImportError:
+        DEFAULT_GROQ_API_KEY = ""
+    groq_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GROK_API_KEY") or DEFAULT_GROQ_API_KEY
+    
+    if not groq_key:
+        print("Groq API key not configured for voice transcription.")
+        return ""
+        
+    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}"
+    }
+    
+    files = {
+        "file": (file_name, audio_bytes, "audio/ogg"),
+        "model": (None, "whisper-large-v3"),
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(url, files=files, headers=headers, timeout=30.0)
+            if res.status_code == 200:
+                return res.json().get("text", "").strip()
+            else:
+                print(f"Groq Whisper transcription error: {res.status_code} - {res.text}")
+                return ""
+    except Exception as e:
+        print(f"Groq Whisper transcription request failed: {e}")
+        return ""
+
+async def send_telegram_voice_message(chat_id: str, text: str):
+    from gtts import gTTS
+    
+    # Strip markdown tags for smooth speech
+    clean_text = text.replace("**", "").replace("*", "").replace("#", "").replace("_", "").replace("`", "")
+    
+    # Auto-detect language
+    lang = detect_language(clean_text)
+    
+    temp_file = f"voice_{chat_id}.mp3"
+    try:
+        tts = gTTS(text=clean_text, lang=lang)
+        tts.save(temp_file)
+        
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendVoice"
+        with open(temp_file, "rb") as f:
+            files = {"voice": (f"voice_{chat_id}.mp3", f, "audio/mp3")}
+            data = {"chat_id": chat_id, "caption": text}
+            async with httpx.AsyncClient() as client:
+                res = await client.post(url, data=data, files=files, timeout=30.0)
+                if res.status_code != 200:
+                    print(f"Telegram sendVoice failed: {res.status_code} - {res.text}")
+                    await send_telegram_message(chat_id, text)
+    except Exception as e:
+        print(f"Failed to generate gTTS speech response: {e}")
+        await send_telegram_message(chat_id, text)
+    finally:
+        if os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except Exception as e:
+                print(f"Could not remove temp file: {e}")
+
+def detect_language(text: str) -> str:
+    # Heuristics for Unicode ranges of common languages
+    for char in text:
+        val = ord(char)
+        if 0x0B80 <= val <= 0x0BFF:
+            return "ta" # Tamil
+        elif 0x0900 <= val <= 0x097F:
+            return "hi" # Hindi
+        elif 0x0C00 <= val <= 0x0C7F:
+            return "te" # Telugu
+        elif 0x0D00 <= val <= 0x0D7F:
+            return "ml" # Malayalam
+        elif 0x0600 <= val <= 0x06FF:
+            return "ar" # Arabic
+        elif 0x3040 <= val <= 0x30FF or 0x4E00 <= val <= 0x9FFF:
+            return "ja" # Japanese
+    return "en" # Default to English
 
 # WhatsApp Webhook Endpoints
 @app.get("/api/webhooks/whatsapp")

@@ -133,15 +133,78 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
     }
   };
 
+  const userGender = localStorage.getItem('stylix_gender') || 'male';
+
   const filteredItems = items.filter(item => {
+    // Gender-based customization: if user is male, hide dresses/skirts unless they explicitly search for them
+    if (userGender === 'male' && searchQuery === '') {
+      const name = (item.name || '').toLowerCase();
+      const style = (item.style_tag || '').toLowerCase();
+      if (name.includes('dress') || name.includes('skirt') || style.includes('dress') || style.includes('skirt')) {
+        return false;
+      }
+    }
+
     const categoryMatch = filterCategory === 'all' || item.category === filterCategory;
     const cleanMatch = filterClean === 'all' || 
                        (filterClean === 'clean' && item.is_clean) || 
                        (filterClean === 'dirty' && !item.is_clean);
-    const searchMatch = searchQuery === '' || 
-                       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       item.color.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                       item.style_tag.toLowerCase().includes(searchQuery.toLowerCase());
+                       
+    // Smart keyword search matching categories, pattern synonyms, fabric, color, name
+    const searchMatch = (() => {
+      if (searchQuery === '') return true;
+      const query = searchQuery.toLowerCase().trim();
+      
+      const matchesCategory = (q, cat) => {
+        if (q === 'shirt' || q === 'shirts' || q === 'tshirt' || q === 't-shirt' || q === 'tshirts' || q === 'jibba' || q === 'jibbas') {
+          return cat === 'top';
+        }
+        if (q === 'pant' || q === 'pants' || q === 'trouser' || q === 'trousers' || q === 'jeans' || q === 'denim') {
+          return cat === 'bottom';
+        }
+        if (q === 'shoe' || q === 'shoes' || q === 'footwear') {
+          return cat === 'footwear';
+        }
+        return false;
+      };
+      
+      const matchesPattern = (q, pat) => {
+        const p = (pat || '').toLowerCase();
+        if (q === 'checked' || q === 'checks' || q === 'check') {
+          return p.includes('check');
+        }
+        if (q === 'plain' || q === 'solid') {
+          return p.includes('solid') || p.includes('plain') || p === '';
+        }
+        if (q === 'designed' || q === 'patterned' || q === 'pattern') {
+          return p.includes('pattern') || p.includes('design') || p.includes('stripe') || p.includes('print') || p.includes('floral');
+        }
+        if (q === 'striped' || q === 'stripes' || q === 'stripe') {
+          return p.includes('stripe');
+        }
+        if (q === 'printed' || q === 'prints' || q === 'print') {
+          return p.includes('print') || p.includes('floral');
+        }
+        return p.includes(q);
+      };
+
+      const name = (item.name || '').toLowerCase();
+      const color = (item.color || '').toLowerCase();
+      const style_tag = (item.style_tag || '').toLowerCase();
+      const category = (item.category || '').toLowerCase();
+      const fabric = (item.fabric || '').toLowerCase();
+      const pattern = (item.pattern || '').toLowerCase();
+      const formality = (item.formality || '').toLowerCase();
+      
+      return name.includes(query) ||
+             color.includes(query) ||
+             style_tag.includes(query) ||
+             fabric.includes(query) ||
+             formality.includes(query) ||
+             matchesCategory(query, category) ||
+             matchesPattern(query, pattern);
+    })();
+
     return categoryMatch && cleanMatch && searchMatch;
   });
 
