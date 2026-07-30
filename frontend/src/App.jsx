@@ -15,8 +15,14 @@ if (!API_HOST) {
     if (parts.length > 0) {
       API_HOST = `${parts[0]}-backend.vercel.app`;
     }
+  } else if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    if (window.Capacitor || window.location.protocol === 'capacitor:' || !window.location.port) {
+      API_HOST = "https://stylix-backend.vercel.app";
+    } else {
+      API_HOST = "http://127.0.0.1:8000";
+    }
   } else {
-    API_HOST = "http://127.0.0.1:8000";
+    API_HOST = "https://stylix-backend.vercel.app";
   }
 }
 if (API_HOST && !API_HOST.startsWith("http://") && !API_HOST.startsWith("https://")) {
