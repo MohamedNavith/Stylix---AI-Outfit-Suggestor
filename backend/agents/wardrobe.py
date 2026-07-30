@@ -36,8 +36,8 @@ class WardrobeAgent:
     def __init__(self, db: Optional[EncryptedDatabase] = None):
         self.db = db if db else EncryptedDatabase()
 
-    def get_wardrobe(self, username: str) -> List[Dict[str, Any]]:
-        return self.db.get_wardrobe(username)
+    def get_wardrobe(self, username: str, select_cols: str = "*") -> List[Dict[str, Any]]:
+        return self.db.get_wardrobe(username, select_cols)
 
     def catalog_clothing_item(self, image_base64: str, file_name: Optional[str] = None) -> Dict[str, Any]:
         client = get_gemini_client()
@@ -136,7 +136,7 @@ class WardrobeAgent:
         return success
 
     def clean_all_dirty_items(self, username: str) -> int:
-        wardrobe = self.db.get_wardrobe(username)
+        wardrobe = self.db.get_wardrobe(username, select_cols="id,is_clean")
         count = 0
         for item in wardrobe:
             if not item["is_clean"]:
@@ -145,7 +145,7 @@ class WardrobeAgent:
         return count
 
     def get_laundry_stats(self, username: str) -> Dict[str, Any]:
-        wardrobe = self.db.get_wardrobe(username)
+        wardrobe = self.db.get_wardrobe(username, select_cols="id,name,category,color,is_clean")
         clean_count = sum(1 for item in wardrobe if item["is_clean"])
         dirty_count = sum(1 for item in wardrobe if not item["is_clean"])
         

@@ -284,25 +284,40 @@ class EncryptedDatabase:
             self.save()
             return True
 
-    def get_wardrobe(self, username: str) -> List[Dict[str, Any]]:
+    def get_wardrobe(self, username: str, select_cols: str = "*") -> List[Dict[str, Any]]:
         if self.is_cloud:
             try:
-                res = httpx.get(f"{SUPABASE_URL}/rest/v1/wardrobe_items?username=eq.{username}", headers=self.headers)
+                url = f"{SUPABASE_URL}/rest/v1/wardrobe_items?username=eq.{username}&select={select_cols}"
+                res = httpx.get(url, headers=self.headers, timeout=30.0)
                 if res.status_code == 200:
                     return res.json()
             except Exception as e:
                 print(f"Error fetching wardrobe: {e}")
             return []
         user = self.get_user(username)
-        return user["wardrobe"] if user else []
+        if not user:
+            return []
+        if select_cols == "*":
+            return user["wardrobe"]
+        cols = [c.strip() for c in select_cols.split(",")]
+        filtered = []
+        for item in user["wardrobe"]:
+            filtered.append({k: v for k, v in item.items() if k in cols})
+        return filtered
 
     def add_wardrobe_item(self, username: str, item: Dict[str, Any]) -> str:
         if self.is_cloud:
             try:
-                payload = {**item, "username": username}
+                allowed_keys = {
+                    "id", "name", "category", "color", "fabric", "formality", "pattern", "style_tag", "is_clean", "last_worn_date", "image_data"
+                }
+                clean_item = {k: v for k, v in item.items() if k in allowed_keys}
+                payload = {**clean_item, "username": username}
                 res = httpx.post(f"{SUPABASE_URL}/rest/v1/wardrobe_items", json=payload, headers=self.headers)
                 if res.status_code in [200, 201]:
                     return item["id"]
+                else:
+                    print(f"Error posting wardrobe item to Supabase: {res.status_code} - {res.text}")
             except Exception as e:
                 print(f"Error adding wardrobe item: {e}")
             return ""
@@ -316,7 +331,11 @@ class EncryptedDatabase:
     def update_wardrobe_item(self, username: str, item_id: str, updates: Dict[str, Any]) -> bool:
         if self.is_cloud:
             try:
-                res = httpx.patch(f"{SUPABASE_URL}/rest/v1/wardrobe_items?id=eq.{item_id}&username=eq.{username}", json=updates, headers=self.headers)
+                allowed_keys = {
+                    "id", "name", "category", "color", "fabric", "formality", "pattern", "style_tag", "is_clean", "last_worn_date", "image_data"
+                }
+                clean_updates = {k: v for k, v in updates.items() if k in allowed_keys}
+                res = httpx.patch(f"{SUPABASE_URL}/rest/v1/wardrobe_items?id=eq.{item_id}&username=eq.{username}", json=clean_updates, headers=self.headers)
                 return res.status_code in [200, 204]
             except Exception as e:
                 print(f"Error updating wardrobe item: {e}")

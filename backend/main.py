@@ -1,6 +1,7 @@
 import uuid
 import os
 import datetime
+import base64
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -301,6 +302,169 @@ def chat_endpoint(data: ChatSchema):
     response = coordinator.stylist_agent.chat_with_stylist(data.username, data.message)
     return {"response": response}
 
+# Global pending photos for Telegram
+pending_photos = {}
+
+async def download_telegram_file(file_id: str) -> bytes:
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getFile?file_id={file_id}"
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url)
+        if res.status_code != 200:
+            raise Exception(f"Failed to get file details from Telegram: {res.text}")
+        file_path = res.json()["result"]["file_path"]
+        
+        file_url = f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
+        res_file = await client.get(file_url)
+        if res_file.status_code != 200:
+            raise Exception(f"Failed to download file from Telegram: {res_file.text}")
+        return res_file.content
+
+def catalog_description_with_groq(description: str, groq_key: str) -> dict:
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {groq_key}",
+        "Content-Type": "application/json"
+    }
+    
+    prompt = (
+        f"Analyze this clothing item description: '{description}'. "
+        "Output a strict JSON object with these fields:\n"
+        "1. name (a short, formatted description like 'Faded Green Pant')\n"
+        "2. category (must be exactly one of: 'top', 'bottom', 'outerwear', 'footwear', 'accessory')\n"
+        "3. color (primary color of the item, like 'navy', 'black', 'white', 'beige', 'green', 'yellow', 'red', 'pink', 'teal', 'blue', 'grey')\n"
+        "4. fabric (fabric type, like 'denim', 'cotton', 'wool', 'linen', 'polyester', etc.)\n"
+        "5. formality (must be exactly one of: 'casual', 'smart-casual', 'formal')\n"
+        "6. pattern (like 'solid', 'stripes', 'checkered', 'graphic', 'floral', 'patterned', etc.)\n"
+        "7. style_tag (like 'minimalist', 'streetwear', 'classic', 'athletic', 'refined')\n"
+        "Keep the JSON values concise and strictly aligned to these values."
+    )
+    
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"}
+    }
+    
+    res = httpx.post(url, json=payload, headers=headers, timeout=20.0)
+    if res.status_code == 200:
+        return json.loads(res.json()["choices"][0]["message"]["content"])
+    else:
+        # Simple fallback
+        category = "top"
+        desc_l = description.lower()
+        if any(w in desc_l for w in ["pant", "jeans", "chino", "trouser", "skirt"]):
+            category = "bottom"
+        elif any(w in desc_l for w in ["shoe", "sneaker", "boot"]):
+            category = "footwear"
+            
+        color = "white"
+        colors = ["navy", "black", "white", "beige", "green", "yellow", "red", "pink", "teal", "blue", "grey"]
+        for c in colors:
+            if c in desc_l:
+                color = c
+                break
+                
+        return {
+            "name": description.title(),
+            "category": category,
+            "color": color,
+            "fabric": "cotton",
+            "formality": "casual",
+            "pattern": "solid",
+            "style_tag": "classic"
+        }
+
+async def process_photo_with_description(username: str, chat_id: str, description: str, image_base64: str):
+    # Retrieve Groq key
+    try:
+        from config_keys import DEFAULT_GROQ_API_KEY
+    except ImportError:
+        DEFAULT_GROQ_API_KEY = ""
+    groq_key = os.environ.get("GROQ_API_KEY") or os.environ.get("GROK_API_KEY") or DEFAULT_GROQ_API_KEY
+    
+    # Extract tags
+    try:
+        tags = catalog_description_with_groq(description, groq_key)
+    except Exception as e:
+        print(f"Groq cataloging error: {e}")
+        tags = {
+            "name": description.title(),
+            "category": "top",
+            "color": "white",
+            "fabric": "cotton",
+            "formality": "casual",
+            "pattern": "solid",
+            "style_tag": "classic"
+        }
+        
+    # Check duplicate
+    wardrobe = coordinator.wardrobe_agent.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag")
+    duplicate_item = None
+    
+    new_name = tags.get("name", "").strip().lower()
+    for item in wardrobe:
+        if item.get("name", "").strip().lower() == new_name:
+            duplicate_item = item
+            break
+            
+    if not duplicate_item:
+        for item in wardrobe:
+            if (item.get("category") == tags.get("category") and
+                item.get("color") == tags.get("color") and
+                item.get("fabric") == tags.get("fabric") and
+                item.get("pattern") == tags.get("pattern") and
+                item.get("formality") == tags.get("formality")):
+                duplicate_item = item
+                break
+                
+    if duplicate_item:
+        reply = (
+            f"❌ Duplicate detected!\n\n"
+            f"This item already exists in your wardrobe as:\n"
+            f"👕 *{duplicate_item.get('name')}*\n"
+            f"Color: {duplicate_item.get('color')} | Category: {duplicate_item.get('category')}\n\n"
+            f"Upload ignored to prevent duplicate entries."
+        )
+        await send_telegram_message(chat_id, reply)
+        return
+        
+    # Construct item and save
+    new_item = {
+        "id": f"item_{uuid.uuid4().hex[:8]}",
+        "name": tags.get("name", "New Item"),
+        "category": tags.get("category", "top"),
+        "color": tags.get("color", "white"),
+        "fabric": tags.get("fabric", "cotton"),
+        "formality": tags.get("formality", "casual"),
+        "pattern": tags.get("pattern", "solid"),
+        "style_tag": tags.get("style_tag", "classic"),
+        "is_clean": True,
+        "last_worn_date": None,
+        "image_data": image_base64,
+        "mesh_type": "shirt" if tags.get("category") == "top" else "pant" if tags.get("category") == "bottom" else "coat"
+    }
+    
+    db.add_wardrobe_item(username, new_item)
+    
+    # Refresh weekly plan with the new item included
+    try:
+        coordinator.generate_weekly_cycle(username)
+    except Exception as e:
+        print(f"Error shuffling weekly planner: {e}")
+        
+    reply = (
+        f"✅ Garment cataloged successfully!\n\n"
+        f"👕 *{new_item['name']}*\n"
+        f"• Category: {new_item['category']}\n"
+        f"• Color: {new_item['color']}\n"
+        f"• Fabric: {new_item['fabric']}\n"
+        f"• Formality: {new_item['formality']}\n"
+        f"• Pattern: {new_item['pattern']}\n"
+        f"• Style: {new_item['style_tag']}\n\n"
+        f"Added to your Stylix wardrobe and weekly rotation plan shuffled!"
+    )
+    await send_telegram_message(chat_id, reply)
+
 # Telegram Webhook Endpoints
 @app.post("/api/webhooks/telegram")
 async def telegram_webhook(request: Request):
@@ -311,8 +475,38 @@ async def telegram_webhook(request: Request):
         
         msg = data["message"]
         chat_id = str(msg["chat"]["id"])
-        text = msg.get("text", "").strip()
         
+        # 1. Handle incoming photos
+        if "photo" in msg:
+            photo_arr = msg["photo"]
+            file_id = photo_arr[-1]["file_id"]
+            caption = msg.get("caption", "").strip()
+            
+            user = db.get_user_by_telegram_chat_id(chat_id)
+            if not user:
+                await send_telegram_message(chat_id, "Your Telegram is not linked to a Stylix account. Please type: /start <your_username> to connect.")
+                return {"status": "unlinked"}
+            
+            try:
+                photo_bytes = await download_telegram_file(file_id)
+                image_base64 = "data:image/jpeg;base64," + base64.b64encode(photo_bytes).decode("utf-8")
+            except Exception as e:
+                await send_telegram_message(chat_id, f"Failed to download image from Telegram: {e}")
+                return {"status": "download_failed"}
+                
+            if caption:
+                await process_photo_with_description(user["username"], chat_id, caption, image_base64)
+            else:
+                # Store pending photo
+                pending_photos[chat_id] = {
+                    "image_base64": image_base64,
+                    "timestamp": datetime.datetime.now()
+                }
+                await send_telegram_message(chat_id, "I've received your photo! 📸 Please reply to this photo/message with a description of the garment (e.g. 'black formal shirt', 'blue denim jeans') so I can catalog it.")
+            return {"status": "photo_received"}
+            
+        # 2. Handle text messages
+        text = msg.get("text", "").strip()
         if not text:
             return {"status": "no text"}
             
@@ -336,14 +530,23 @@ async def telegram_webhook(request: Request):
             await send_telegram_message(chat_id, reply_text)
             return {"status": "linked"}
             
-        # Normal chat
+        # Verify user
         user = db.get_user_by_telegram_chat_id(chat_id)
-        if user:
-            username = user["username"]
-            reply_text = coordinator.stylist_agent.chat_with_stylist(username, text)
-        else:
+        if not user:
             reply_text = "Your Telegram is not linked to a Stylix account. Please type: /start <your_username> to connect."
+            await send_telegram_message(chat_id, reply_text)
+            return {"status": "unlinked"}
             
+        # Check if replying to a photo or if there is a pending photo description
+        if chat_id in pending_photos:
+            pending = pending_photos.pop(chat_id)
+            # Process description
+            await process_photo_with_description(user["username"], chat_id, text, pending["image_base64"])
+            return {"status": "photo_cataloged"}
+            
+        # Normal chat with stylist
+        username = user["username"]
+        reply_text = coordinator.stylist_agent.chat_with_stylist(username, text)
         await send_telegram_message(chat_id, reply_text)
         return {"status": "ok"}
     except Exception as e:

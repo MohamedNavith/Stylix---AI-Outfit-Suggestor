@@ -145,7 +145,7 @@ class StylistAgent:
         if not outfit:
             return True
 
-        wardrobe = self.db.get_wardrobe(username)
+        wardrobe = self.db.get_wardrobe(username, select_cols="id,color,formality,pattern")
         outfit_items = []
         for outfit_item in outfit:
             for item in wardrobe:
@@ -233,7 +233,7 @@ class StylistAgent:
         return score
 
     def generate_weekly_plan(self, username: str, context_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        all_items = self.db.get_wardrobe(username)
+        all_items = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean,last_worn_date")
         profile = self.db.get_style_profile(username)
         
         user_info = self.db.get_user(username) or {}
@@ -263,37 +263,58 @@ class StylistAgent:
             
             scored_tops = [(t, self.score_item(t, day, profile)) for t in tops]
             scored_bottoms = [(b, self.score_item(b, day, profile)) for b in bottoms]
-            scored_footwear = [(f, self.score_item(f, day, profile)) for f in footwear]
             
             scored_tops.sort(key=lambda x: x[1], reverse=True)
             scored_bottoms.sort(key=lambda x: x[1], reverse=True)
-            scored_footwear.sort(key=lambda x: x[1], reverse=True)
             
-            for t_item, t_score in scored_tops[:3]:
-                for b_item, b_score in scored_bottoms[:3]:
-                    for f_item, f_score in scored_footwear[:3]:
-                        combo_score = t_score + b_score + f_score
-                        color_score = self.get_color_harmony_score(t_item["color"], b_item["color"])
-                        combo_score += color_score
-                        
-                        if f_item["formality"] == "formal" and (t_item["formality"] == "casual" or b_item["formality"] == "casual"):
-                            combo_score -= 1.5
+            if scored_tops and scored_bottoms:
+                if footwear:
+                    scored_footwear = [(f, self.score_item(f, day, profile)) for f in footwear]
+                    scored_footwear.sort(key=lambda x: x[1], reverse=True)
+                    
+                    for t_item, t_score in scored_tops[:3]:
+                        for b_item, b_score in scored_bottoms[:3]:
+                            for f_item, f_score in scored_footwear[:3]:
+                                combo_score = t_score + b_score + f_score
+                                color_score = self.get_color_harmony_score(t_item["color"], b_item["color"])
+                                combo_score += color_score
+                                
+                                if f_item["formality"] == "formal" and (t_item["formality"] == "casual" or b_item["formality"] == "casual"):
+                                    combo_score -= 1.5
+                                    
+                                # Gender Specific Alignment Bonuses
+                                if gender == "female":
+                                    if "dress" in t_item["name"].lower() or t_item.get("mesh_type") == "dress":
+                                        combo_score += 1.0
+                                
+                                if combo_score > best_score:
+                                    best_score = combo_score
+                                    best_combo = (t_item, b_item, f_item)
+                else:
+                    for t_item, t_score in scored_tops[:3]:
+                        for b_item, b_score in scored_bottoms[:3]:
+                            combo_score = t_score + b_score
+                            color_score = self.get_color_harmony_score(t_item["color"], b_item["color"])
+                            combo_score += color_score
                             
-                        # Gender Specific Alignment Bonuses
-                        if gender == "female":
-                            # Women styles matching (e.g. crop top or dress matches formal/smart-casual)
-                            if "dress" in t_item["name"].lower() or t_item.get("mesh_type") == "dress":
-                                combo_score += 1.0
-                        
-                        if combo_score > best_score:
-                            best_score = combo_score
-                            best_combo = (t_item, b_item, f_item)
+                            # Gender Specific Alignment Bonuses
+                            if gender == "female":
+                                if "dress" in t_item["name"].lower() or t_item.get("mesh_type") == "dress":
+                                    combo_score += 1.0
+                            
+                            if combo_score > best_score:
+                                best_score = combo_score
+                                best_combo = (t_item, b_item, None)
 
             assigned_outfit_details = []
             if best_combo:
                 t_sel, b_sel, f_sel = best_combo
-                assigned_outfit_details.extend([t_sel, b_sel, f_sel])
-                used_item_ids.update([t_sel["id"], b_sel["id"], f_sel["id"]])
+                assigned_outfit_details.append(t_sel)
+                assigned_outfit_details.append(b_sel)
+                used_item_ids.update([t_sel["id"], b_sel["id"]])
+                if f_sel:
+                    assigned_outfit_details.append(f_sel)
+                    used_item_ids.add(f_sel["id"])
                 
                 # Outerwear check
                 occasion = day["occasion"].lower()
@@ -332,7 +353,7 @@ class StylistAgent:
 
     def chat_with_stylist(self, username: str, message: str) -> str:
         self.db.save_chat_message(username, "user", message)
-        wardrobe = self.db.get_wardrobe(username)
+        wardrobe = self.db.get_wardrobe(username, select_cols="id,name,category,color,formality,is_clean")
         profile = self.get_profile(username)
         plan = self.db.get_routine_plan(username)
         user_info = self.db.get_user(username) or {}
