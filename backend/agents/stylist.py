@@ -347,8 +347,73 @@ class StylistAgent:
                 "occasion": day["occasion"],
                 "assigned_outfit": outfit_detail_list,
                 "status": "Planned",
-                "rating": None
+                "rating": None,
+                "verdict": ""
             })
+            
+        # Batch call to Groq Llama to generate style verdicts (confirms API key and evaluates styling logic)
+        try:
+            from config_keys import DEFAULT_GROQ_API_KEY
+        except ImportError:
+            DEFAULT_GROQ_API_KEY = ""
+        groq_key = os.environ.get("GROQ_API_KEY") or DEFAULT_GROQ_API_KEY
+        
+        if groq_key:
+            try:
+                combo_desc = []
+                for slot in updated_plan:
+                    outfit_str = ", ".join([f"{item['name']} ({item['color']})" for item in slot["assigned_outfit"]])
+                    combo_desc.append(f"Day {slot['day_index']} ({slot['day_name']} - {slot['occasion']}): {outfit_str}")
+                
+                verdict_prompt = (
+                    f"You are the Stylix AI fashion director. Review this 6-day outfit plan for {gender} user '{username}':\n"
+                    + "\n".join(combo_desc) + "\n\n"
+                    "For each day, write a very short 1-line style verdict (under 15 words) explaining why the color/formality matches the occasion. "
+                    "Return a JSON object mapping day index string (e.g. \"0\", \"1\", ...) to its verdict. "
+                    "Example output: {\"0\": \"Navy trousers contrast cleanly with the white shirt for a formal lunch.\", \"1\": \"...\"}\n"
+                    "Output ONLY the raw valid JSON block."
+                )
+                
+                import httpx
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": [
+                        {"role": "system", "content": "You are a professional fashion editor. Only reply with raw JSON."},
+                        {"role": "user", "content": verdict_prompt}
+                    ],
+                    "temperature": 0.3,
+                    "response_format": {"type": "json_object"}
+                }
+                res = httpx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=20.0)
+                if res.status_code == 200:
+                    verdicts_json = res.json()["choices"][0]["message"]["content"].strip()
+                    verdicts = json.loads(verdicts_json)
+                    for slot in updated_plan:
+                        idx_str = str(slot["day_index"])
+                        if idx_str in verdicts:
+                            slot["verdict"] = verdicts[idx_str]
+                    print("Stylix weekly style verdicts generated successfully via Groq LLaMA.")
+            except Exception as e:
+                print(f"Error generating style verdicts via Groq: {e}")
+
+        # Fallback to local rule-based verdicts if not set
+        for slot in updated_plan:
+            if not slot.get("verdict"):
+                outfit = slot["assigned_outfit"]
+                if outfit:
+                    top = next((i for i in outfit if i["category"] == "top"), None)
+                    bottom = next((i for i in outfit if i["category"] == "bottom"), None)
+                    if top and bottom:
+                        slot["verdict"] = f"The {top['color']} top matches the {bottom['color']} bottom for a balanced {slot['occasion'].lower()} outfit."
+                    else:
+                        slot["verdict"] = f"A neat {slot['occasion'].lower()} selection optimized for your schedule."
+                else:
+                    slot["verdict"] = "No outfits planned for this day."
+                    
         return updated_plan
 
     def chat_with_stylist(self, username: str, message: str) -> str:
@@ -384,7 +449,11 @@ class StylistAgent:
             "Help the user decide what to wear, suggest changes, check if clothes are clean, or explain how their laundry rotation works. "
             "IMPORTANT: Always format your response cleanly using markdown list bullets (*), bold text (**), and headings if helpful. "
             "Use emojis for categories (e.g. 👕 for shirts, 👖 for pants, 🧺 for laundry, 📅 for schedules). "
-            "Never output plain paragraphs without styling—keep lists structured, clear, and highly organized."
+            "Never output plain paragraphs without styling—keep lists structured, clear, and highly organized. "
+            "USER DISLIKES MEMORY: If the user states they dislike a color, pattern, or style (e.g. 'I don't like yellow', 'I hate stripes', 'avoid casual dress'), "
+            "you MUST append a trailing line to your response strictly formatted as: "
+            "UPDATE_PROFILE: {\"avoided_colors\": [\"yellow\"]} or UPDATE_PROFILE: {\"avoided_styles\": [\"casual\"]}. "
+            "Only output this block if the user explicitly expresses a dislike or preference change during the conversation. You must also include the normal styled message."
         )
 
         # 1. Try Groq (groq.com) API
@@ -446,6 +515,35 @@ class StylistAgent:
                 reply = f"These items are currently dirty: {', '.join(dirty_items)}. Run the Laundry Cycle to clean them."
             else:
                 reply = f"Hello {name}! I am your Stylix AI wardrobe coach. Let me know if you need outfit combinations or recommendations for your upcoming {gender} outfits!"
+
+        if "UPDATE_PROFILE:" in reply:
+            parts = reply.split("UPDATE_PROFILE:", 1)
+            main_reply = parts[0].strip()
+            update_str = parts[1].strip()
+            
+            try:
+                import re
+                json_match = re.search(r'\{.*?\}', update_str)
+                if json_match:
+                    updates = json.loads(json_match.group(0))
+                    
+                    # Merge with existing profile lists
+                    curr_profile = self.db.get_style_profile(username)
+                    for key, val in updates.items():
+                        if isinstance(val, list):
+                            existing = curr_profile.get(key, [])
+                            if not isinstance(existing, list):
+                                existing = []
+                            # Merge and deduplicate
+                            merged = list(set(existing + val))
+                            updates[key] = merged
+                            
+                    self.db.update_style_profile(username, updates)
+                    print(f"Chatbot dynamically updated style profile for {username}: {updates}")
+            except Exception as e:
+                print(f"Error parsing profile update from chatbot: {e}")
+                
+            reply = main_reply
 
         self.db.save_chat_message(username, "assistant", reply)
         return reply

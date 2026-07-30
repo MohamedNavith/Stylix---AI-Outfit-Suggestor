@@ -7,6 +7,7 @@ import {
 import RoutinePlan from './components/RoutinePlan';
 import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
+import AdminPanel from './components/AdminPanel';
 import { BUILD_ID } from './version';
 
 let API_HOST = import.meta.env.VITE_API_URL;
@@ -61,12 +62,30 @@ const removeCookie = (name) => {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
 };
 
+const parseBirthdayInput = (val) => {
+  if (!val) return "2000-01-01";
+  const clean = val.trim();
+  const matchDMY = clean.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+  if (matchDMY) {
+    return `${matchDMY[3]}-${matchDMY[2]}-${matchDMY[1]}`;
+  }
+  const matchYMD = clean.match(/^(\d{4})[-/](\d{2})[-/](\d{2})$/);
+  if (matchYMD) {
+    return `${matchYMD[1]}-${matchYMD[2]}-${matchYMD[3]}`;
+  }
+  return clean;
+};
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(localStorage.getItem('stylix_user') || getCookie('stylix_user') || '');
   const [userRole, setUserRole] = useState(localStorage.getItem('stylix_role') || getCookie('stylix_role') || '');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [theme, setTheme] = useState(localStorage.getItem('stylix_theme') || getCookie('stylix_theme') || 'classic');
   const [laundryStatsTrigger, setLaundryStatsTrigger] = useState(0);
+  const [showSplash, setShowSplash] = useState(true);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [zoomImage, setZoomImage] = useState(null);
+  const [wardrobeItems, setWardrobeItems] = useState([]);
   
   // Voice Synthesis and Speech Recognition states
   const [isListening, setIsListening] = useState(false);
@@ -117,6 +136,32 @@ export default function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const fetchAppWardrobe = async () => {
+    if (!currentUser) return;
+    try {
+      const res = await fetch(`${API_HOST}/api/wardrobe?username=${encodeURIComponent(currentUser)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setWardrobeItems(data);
+      }
+    } catch (e) {
+      console.error("Error loading wardrobe items for chatbot scanning:", e);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchAppWardrobe();
+    }
+  }, [currentUser, laundryStatsTrigger]);
 
   const formatChatMessage = (text) => {
     if (!text) return "";
@@ -258,7 +303,7 @@ export default function App() {
           username: usernameInput, 
           password: passwordInput,
           name: nameInput || usernameInput,
-          birthday: birthdayInput || "2000-01-01",
+          birthday: parseBirthdayInput(birthdayInput),
           gender: genderInput
         };
     
@@ -339,9 +384,10 @@ export default function App() {
     e.preventDefault();
     setSettingsSaving(true);
     try {
+      const parsedBday = parseBirthdayInput(settingsBirthday);
       const updates = {
         name: settingsName,
-        birthday: settingsBirthday,
+        birthday: parsedBday,
         gender: settingsGender,
         email: settingsEmail,
         mobile: settingsMobile,
@@ -361,11 +407,11 @@ export default function App() {
       if (res.ok) {
         localStorage.setItem('stylix_name', settingsName);
         localStorage.setItem('stylix_gender', settingsGender);
-        localStorage.setItem('stylix_birthday', settingsBirthday);
+        localStorage.setItem('stylix_birthday', parsedBday);
         
         setCookie('stylix_name', settingsName);
         setCookie('stylix_gender', settingsGender);
-        setCookie('stylix_birthday', settingsBirthday);
+        setCookie('stylix_birthday', parsedBday);
 
         alert("Settings saved successfully!");
         setSettingsPassword('');
@@ -470,7 +516,7 @@ export default function App() {
     }
   };
 
-  const changeTheme = (newTheme) => {
+  const changeTheme = async (newTheme) => {
     setTheme(newTheme);
     localStorage.setItem('stylix_theme', newTheme);
     setCookie('stylix_theme', newTheme);
@@ -478,6 +524,17 @@ export default function App() {
       document.documentElement.removeAttribute('data-theme');
     } else {
       document.documentElement.setAttribute('data-theme', newTheme);
+    }
+    if (currentUser) {
+      try {
+        await fetch(`${API_HOST}/api/profile/update?username=${encodeURIComponent(currentUser)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ theme: newTheme })
+        });
+      } catch (err) {
+        console.error("Theme sync failed:", err);
+      }
     }
   };
 
@@ -601,7 +658,8 @@ export default function App() {
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Birthday</label>
                   <input 
-                    type="date" 
+                    type="text" 
+                    placeholder="DD-MM-YYYY or YYYY-MM-DD"
                     className="form-input" 
                     value={birthdayInput}
                     onChange={(e) => setBirthdayInput(e.target.value)}
@@ -849,6 +907,20 @@ export default function App() {
             >
               <Droplet size={16} /> Laundry Pool
             </button>
+            {userRole === 'admin' && (
+              <button 
+                onClick={() => { setActiveTab('admin'); setShowChat(false); }}
+                className="btn-secondary"
+                style={{ 
+                  justifyContent: 'flex-start', 
+                  background: activeTab === 'admin' ? 'var(--accent-glow)' : 'transparent',
+                  borderColor: activeTab === 'admin' ? 'var(--border-accent)' : 'transparent',
+                  color: activeTab === 'admin' ? 'var(--accent)' : 'var(--text-primary)'
+                }}
+              >
+                <Shield size={16} /> Admin Panel
+              </button>
+            )}
             <a 
               href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
               target="_blank"
@@ -873,28 +945,35 @@ export default function App() {
           </nav>
 
           {/* Consolidated Agent Heartbeats */}
-          <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Cpu size={16} style={{ color: '#cca43b' }} />
-              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                Dress. Wear. Repeat Never.
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.7rem' }}>
+          <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
+              🤖 System Agents Network
+            </span>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
               {[
                 "Coordinator Agent", "Stylist Agent", "Wardrobe Agent"
               ].map(agent => (
-                <div key={agent} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{agent}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button 
+                  key={agent}
+                  onClick={() => setSelectedAgent(agent)}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '8px', padding: '8px 10px', color: 'var(--text-secondary)', cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                  className="hover:border-accent"
+                >
+                  <span style={{ fontWeight: 600 }}>{agent}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <div className="breathing-dot" style={{
-                      width: '6px', height: '6px', borderRadius: '50%', background: '#10B981',
-                      boxShadow: '0 0 8px #10B981', animation: 'breath 2s infinite ease-in-out'
+                      width: '5px', height: '5px', borderRadius: '50%', background: '#10B981',
+                      boxShadow: '0 0 6px #10B981'
                     }} />
-                    <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6rem' }}>ACTIVE</span>
+                    <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.65rem' }}>ACTIVE</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -1034,9 +1113,10 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'dashboard' && <RoutinePlan apiHost={API_HOST} username={currentUser} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
-          {activeTab === 'catalog' && <WardrobeCatalog apiHost={API_HOST} username={currentUser} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
-          {activeTab === 'laundry' && <LaundryHub apiHost={API_HOST} username={currentUser} stats={laundryStatsTrigger} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
+          {activeTab === 'dashboard' && <RoutinePlan apiHost={API_HOST} username={currentUser} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
+          {activeTab === 'catalog' && <WardrobeCatalog apiHost={API_HOST} username={currentUser} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
+          {activeTab === 'laundry' && <LaundryHub apiHost={API_HOST} username={currentUser} stats={laundryStatsTrigger} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
+          {activeTab === 'admin' && userRole === 'admin' && <AdminPanel apiHost={API_HOST} username={currentUser} />}
         </main>
       </div>
             {/* 3. AI CHATBOT SPARKLE BUTTON (PC ONLY) */}
@@ -1122,21 +1202,83 @@ export default function App() {
           <div style={{ flexGrow: 1, padding: '14px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {chatMessages.map((msg, index) => {
               const isUser = msg.sender === 'user';
+              let mentionedItems = [];
+              if (!isUser && msg.text && wardrobeItems.length > 0) {
+                mentionedItems = wardrobeItems.filter(item => 
+                  msg.text.toLowerCase().includes(item.name.toLowerCase())
+                );
+              }
               return (
                 <div 
                   key={index} 
                   style={{
                     alignSelf: isUser ? 'flex-end' : 'flex-start',
                     maxWidth: '85%',
-                    padding: '10px 14px',
-                    borderRadius: isUser ? '12px 12px 0 12px' : '12px 12px 12px 0',
-                    backgroundColor: isUser ? 'var(--accent)' : 'rgba(255,255,255,0.03)',
-                    color: isUser ? 'var(--bg-primary)' : 'var(--text-primary)',
-                    fontSize: '0.85rem',
-                    lineHeight: 1.45
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px'
                   }}
                 >
-                  {isUser ? msg.text : formatChatMessage(msg.text)}
+                  <div 
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: isUser ? '12px 12px 0 12px' : '12px 12px 12px 0',
+                      backgroundColor: isUser ? 'var(--accent)' : 'rgba(255,255,255,0.03)',
+                      color: isUser ? 'var(--bg-primary)' : 'var(--text-primary)',
+                      fontSize: '0.85rem',
+                      lineHeight: 1.45
+                    }}
+                  >
+                    {isUser ? msg.text : formatChatMessage(msg.text)}
+                  </div>
+                  {mentionedItems.length > 0 && (
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', paddingLeft: '8px', marginBottom: '4px' }}>
+                      {mentionedItems.map((item) => (
+                        <div 
+                          key={item.id}
+                          onClick={() => {
+                            if (item.image_data) {
+                              setZoomImage(item.image_data);
+                            }
+                          }}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '4px',
+                            cursor: item.image_data ? 'pointer' : 'default',
+                            transition: 'transform 0.2s'
+                          }}
+                          className="hover:scale-105"
+                        >
+                          <div style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            overflow: 'hidden',
+                            backgroundColor: 'rgba(0,0,0,0.3)',
+                            position: 'relative'
+                          }}>
+                            {item.image_data ? (
+                              <img 
+                                src={item.image_data} 
+                                alt={item.name} 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                                👕
+                              </div>
+                            )}
+                          </div>
+                          <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', maxWidth: '42px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {item.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1270,6 +1412,18 @@ export default function App() {
             <Droplet size={20} />
             <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Laundry</span>
           </button>
+          {userRole === 'admin' && (
+            <button
+              onClick={() => { setActiveTab('admin'); setShowChat(false); }}
+              style={{
+                background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                color: activeTab === 'admin' && !showChat ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+              }}
+            >
+              <Shield size={20} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Admin</span>
+            </button>
+          )}
           <button
             onClick={() => { setShowChat(!showChat); }}
             style={{
@@ -1339,7 +1493,8 @@ export default function App() {
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Birthday</label>
                 <input 
-                  type="date" 
+                  type="text" 
+                  placeholder="DD-MM-YYYY or YYYY-MM-DD"
                   className="form-input" 
                   value={settingsBirthday}
                   onChange={(e) => setSettingsBirthday(e.target.value)}
@@ -1506,10 +1661,78 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Theme Customizer</span>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-                <button type="button" onClick={() => changeTheme('classic')} style={{ background: '#0b0f19', border: theme === 'classic' ? '2px solid #B794F4' : '1px solid var(--border-color)', borderRadius: '8px', height: '32px', color: '#FFF', fontSize: '0.75rem', cursor: 'pointer' }}>Classic Dark</button>
-                <button type="button" onClick={() => changeTheme('cyber')} style={{ background: '#080C14', border: theme === 'cyber' ? '2px solid #10B981' : '1px solid var(--border-color)', borderRadius: '8px', height: '32px', color: '#FFF', fontSize: '0.75rem', cursor: 'pointer' }}>Cyber Green</button>
-                <button type="button" onClick={() => changeTheme('gold')} style={{ background: '#0E0B09', border: theme === 'gold' ? '2px solid #D97706' : '1px solid var(--border-color)', borderRadius: '8px', height: '32px', color: '#FFF', fontSize: '0.75rem', cursor: 'pointer' }}>Sunrise Gold</button>
-                <button type="button" onClick={() => changeTheme('light-minimal')} style={{ background: '#f8fafc', border: theme === 'light-minimal' ? '2px solid #2563eb' : '1px solid var(--border-color)', borderRadius: '8px', height: '32px', color: '#000', fontSize: '0.75rem', cursor: 'pointer' }}>Light Minimal</button>
+                <button 
+                  type="button" 
+                  onClick={() => changeTheme('classic')} 
+                  style={{ 
+                    background: '#0b0f19', 
+                    border: theme === 'classic' ? '2px solid var(--accent)' : '1px solid var(--border-color)', 
+                    borderRadius: '10px', 
+                    height: '38px', 
+                    color: '#FFF', 
+                    fontSize: '0.75rem', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    boxShadow: theme === 'classic' ? '0 0 10px rgba(183, 148, 244, 0.4)' : 'none'
+                  }}
+                  className="hover:scale-105"
+                >
+                  Classic Dark
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => changeTheme('cyber')} 
+                  style={{ 
+                    background: '#080C14', 
+                    border: theme === 'cyber' ? '2px solid var(--accent)' : '1px solid var(--border-color)', 
+                    borderRadius: '10px', 
+                    height: '38px', 
+                    color: '#FFF', 
+                    fontSize: '0.75rem', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    boxShadow: theme === 'cyber' ? '0 0 10px rgba(16, 185, 129, 0.4)' : 'none'
+                  }}
+                  className="hover:scale-105"
+                >
+                  Cyber Green
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => changeTheme('gold')} 
+                  style={{ 
+                    background: '#0E0B09', 
+                    border: theme === 'gold' ? '2px solid var(--accent)' : '1px solid var(--border-color)', 
+                    borderRadius: '10px', 
+                    height: '38px', 
+                    color: '#FFF', 
+                    fontSize: '0.75rem', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    boxShadow: theme === 'gold' ? '0 0 10px rgba(217, 119, 6, 0.4)' : 'none'
+                  }}
+                  className="hover:scale-105"
+                >
+                  Sunrise Gold
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => changeTheme('light-minimal')} 
+                  style={{ 
+                    background: '#f8fafc', 
+                    border: theme === 'light-minimal' ? '2px solid var(--accent)' : '1px solid var(--border-color)', 
+                    borderRadius: '10px', 
+                    height: '38px', 
+                    color: '#000', 
+                    fontSize: '0.75rem', 
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease-in-out',
+                    boxShadow: theme === 'light-minimal' ? '0 0 10px rgba(37, 99, 235, 0.4)' : 'none'
+                  }}
+                  className="hover:scale-105"
+                >
+                  Light Minimal
+                </button>
               </div>
             </div>
 
@@ -1524,6 +1747,94 @@ export default function App() {
           </form>
         </div>
       )}
+
+      {/* Dynamic Agent Purpose Modal */}
+      {selectedAgent && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 10000, backdropFilter: 'blur(6px)'
+        }}>
+          <div className="glass-panel animate-scale" style={{ width: '90%', maxWidth: '400px', padding: '24px', position: 'relative', border: '1px solid var(--border-accent)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '12px' }}>{selectedAgent}</h3>
+            <p style={{ fontSize: '0.9rem', color: '#E2E8F0', lineHeight: 1.5, marginBottom: '20px' }}>
+              {selectedAgent === 'Coordinator Agent' && "The Coordinated Planner orchestrates your weekly rotation planner, updates worn/skip feedback loops, and sends dirty items to the laundry pool automatically."}
+              {selectedAgent === 'Stylist Agent' && "The AI Fashion Stylist uses the Groq LLaMA model to evaluate color harmony, occasion matching score, dynamic theme personalization, and handles user chatbot chats."}
+              {selectedAgent === 'Wardrobe Agent' && "The Wardrobe Catalog Manager catalogs uploaded clothes or OpenCV videos of garments on a hanger, extracts visual details, and auto-tags attributes via Groq Vision."}
+            </p>
+            <button onClick={() => setSelectedAgent(null)} className="btn-primary" style={{ width: '100%' }}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Image Zoom Modal */}
+      {zoomImage && (
+        <div 
+          onClick={() => setZoomImage(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 20000, cursor: 'zoom-out', backdropFilter: 'blur(8px)'
+          }}
+        >
+          <img 
+            src={zoomImage} 
+            alt="Zoomed garment" 
+            style={{ 
+              maxWidth: '90%', 
+              maxHeight: '85vh', 
+              borderRadius: '16px', 
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+              border: '2px solid rgba(255,255,255,0.1)',
+              objectFit: 'contain'
+            }} 
+          />
+          <div style={{ position: 'absolute', bottom: '30px', color: '#FFF', fontSize: '0.85rem', fontWeight: 600 }}>
+            Tap anywhere to close
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Splash Screen */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: '#0B0D12',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100000,
+          opacity: showSplash ? 1 : 0,
+          visibility: showSplash ? 'visible' : 'hidden',
+          transition: 'opacity 0.6s ease-in-out, visibility 0.6s'
+        }}
+      >
+        <div style={{ transform: 'scale(1.2)', animation: 'pulsate 2s infinite ease-in-out' }}>
+          <StylixLogo size={100} />
+        </div>
+        <h1 style={{ 
+          fontFamily: 'Georgia, serif', 
+          fontSize: '2.5rem', 
+          color: '#FFF', 
+          marginTop: '24px', 
+          fontWeight: 700,
+          letterSpacing: '3px'
+        }}>
+          Stylix
+        </h1>
+        <span style={{ 
+          fontSize: '0.65rem', 
+          color: '#cca43b', 
+          textTransform: 'uppercase', 
+          letterSpacing: '4px', 
+          fontWeight: 'bold',
+          marginTop: '8px'
+        }}>
+          Dress. Wear. Repeat Never.
+        </span>
+      </div>
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes pulsate {

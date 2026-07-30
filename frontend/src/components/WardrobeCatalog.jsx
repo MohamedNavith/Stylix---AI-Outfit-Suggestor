@@ -87,7 +87,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
     reader.onloadend = async () => {
       const base64Data = reader.result;
       
-      runStep(2, () => { // [Gemini Vision Scanning]
+      runStep(2, () => { // [Groq Vision Scanning]
         runStep(3, () => { // [Reconstructing 3D Mesh]
           runStep(4, async () => { // [Fitting Mannequin]
             try {
@@ -205,7 +205,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
         <div>
           <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: '#FFF' }}>Wardrobe Catalog</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
-            Catalog clothing photos & 360° videos on a hanger to auto-tag via Gemini Vision
+            Catalog clothing photos & 360° videos on a hanger to auto-tag via Groq Vision
           </p>
         </div>
       </div>
@@ -267,7 +267,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
               {uploading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
                   <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
-                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>Scanning with Gemini Vision...</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent)' }}>Scanning with Groq Vision...</span>
                 </div>
               ) : (
                 <label style={{ cursor: 'pointer', display: 'block' }}>
@@ -280,7 +280,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
                   <Upload size={24} style={{ color: 'var(--text-secondary)', marginBottom: '10px' }} />
                   <p style={{ fontSize: '0.85rem', fontWeight: 600 }}>Click to Upload Photo</p>
                   <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Gemini Vision automatically classifies fabric, tags and formality profile
+                    Groq Vision automatically classifies fabric, tags and formality profile
                   </p>
                 </label>
               )}
@@ -296,7 +296,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
                   <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: '#FFF' }}>
                     <span style={{ fontWeight: videoStep === 1 ? '700' : '400', color: videoStep === 1 ? 'var(--accent)' : 'var(--text-muted)' }}>[1/4] Extracting Keyframes...</span>
-                    <span style={{ fontWeight: videoStep === 2 ? '700' : '400', color: videoStep === 2 ? 'var(--accent)' : 'var(--text-muted)' }}>[2/4] Gemini Vision Scanning...</span>
+                    <span style={{ fontWeight: videoStep === 2 ? '700' : '400', color: videoStep === 2 ? 'var(--accent)' : 'var(--text-muted)' }}>[2/4] Groq Vision Scanning...</span>
                     <span style={{ fontWeight: videoStep === 3 ? '700' : '400', color: videoStep === 3 ? 'var(--accent)' : 'var(--text-muted)' }}>[3/4] Reconstructing 3D Mesh...</span>
                     <span style={{ fontWeight: videoStep === 4 ? '700' : '400', color: videoStep === 4 ? 'var(--accent)' : 'var(--text-muted)' }}>[4/4] Fitting to Mannequin...</span>
                   </div>

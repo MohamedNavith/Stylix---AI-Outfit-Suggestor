@@ -15,6 +15,14 @@ app = FastAPI(title="Stylix Multi-User API")
 db = EncryptedDatabase()
 coordinator = CoordinatorAgent(db)
 
+system_logs = []
+
+def log_system_event(event: str):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    system_logs.insert(0, f"[{timestamp}] {event}")
+    if len(system_logs) > 100:
+        system_logs.pop()
+
 # Load tokens from environment
 try:
     from config_keys import DEFAULT_TELEGRAM_BOT_TOKEN
@@ -98,6 +106,8 @@ def login(data: LoginSchema):
     if user["password"] != data.password:
         raise HTTPException(status_code=401, detail="Incorrect password")
     
+    log_system_event(f"User '{data.username}' successfully logged in.")
+    
     return {
         "username": data.username,
         "name": user.get("name", data.username),
@@ -125,6 +135,7 @@ def signup(data: SignupSchema):
     )
     if not success:
         raise HTTPException(status_code=400, detail="Username already exists")
+    log_system_event(f"New user registered: '{data.username}' ({data.gender}).")
     return {"message": "Account created successfully"}
 
 # Birthday notification check
@@ -157,6 +168,7 @@ def update_profile(username: str, data: SettingsUpdateSchema):
     success = db.update_user_settings(username, updates)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to update profile settings")
+    log_system_event(f"User '{username}' updated profile settings.")
     return {"message": "Profile updated successfully"}
 
 # Wardrobe Endpoints
@@ -187,6 +199,7 @@ async def add_wardrobe_item(username: str, data: AddItemSchema):
         }
         
         db.add_wardrobe_item(username, new_item)
+        log_system_event(f"User '{username}' cataloged new clothing: {new_item['name']} ({new_item['color']}).")
         return new_item
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -236,6 +249,7 @@ def delete_wardrobe_item(username: str, item_id: str):
         raise HTTPException(status_code=404, detail="Item not found")
         
     db.save()
+    log_system_event(f"User '{username}' deleted clothing item ID {item_id}.")
     return {"message": "Item deleted successfully"}
 
 # Profile Endpoints
@@ -249,7 +263,50 @@ def get_style_profile(username: str):
 @app.post("/api/profile/onboarding")
 def save_onboarding(username: str, data: OnboardingSchema):
     coordinator.stylist_agent.initialize_onboarding(username, data.model_dump())
+    log_system_event(f"User '{username}' completed style profile onboarding.")
     return {"message": "Onboarding completed successfully"}
+
+@app.get("/api/admin/stats")
+def get_admin_stats(username: str):
+    user = db.get_user(username)
+    if not user or user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized. Admin access only.")
+    
+    users_list = []
+    if db.is_cloud:
+        try:
+            from database import SUPABASE_URL
+            url = f"{SUPABASE_URL}/rest/v1/style_profiles?select=username"
+            res = httpx.get(url, headers=db.headers, timeout=20.0)
+            if res.status_code == 200:
+                user_profiles = res.json()
+                for p in user_profiles:
+                    u_name = p.get("username")
+                    users_list.append({
+                        "username": u_name,
+                        "name": u_name,
+                        "gender": "male",
+                        "role": "admin" if u_name == "admin" else "user"
+                    })
+        except Exception as e:
+            print(f"Error fetching cloud user stats: {e}")
+            
+    if not users_list:
+        users_list = [
+            {
+                "username": k,
+                "name": v.get("name") or k,
+                "gender": v.get("gender") or "male",
+                "role": v.get("role") or "user"
+            }
+            for k, v in db.data.get("users", {}).items()
+        ]
+        
+    return {
+        "total_users": len(users_list),
+        "users": users_list,
+        "logs": system_logs
+    }
 
 # Planning Endpoints
 @app.get("/api/plan")
@@ -259,6 +316,7 @@ def get_plan(username: str):
 @app.post("/api/plan/generate")
 def generate_plan(username: str):
     plan = coordinator.generate_weekly_cycle(username)
+    log_system_event(f"User '{username}' shuffled and generated weekly planner plan.")
     return plan
 
 @app.post("/api/plan/confirm")
@@ -266,6 +324,7 @@ def confirm_worn(username: str, data: FeedbackSchema):
     success = coordinator.confirm_day_worn(username, data.day_index, data.rating)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to confirm outfit worn")
+    log_system_event(f"User '{username}' confirmed wearing outfit on day index {data.day_index}.")
     return {"message": "Outfit confirmed worn. Learning updated and items sent to wash."}
 
 @app.post("/api/plan/skip")
@@ -273,6 +332,7 @@ def skip_outfit(username: str, data: FeedbackSchema):
     success = coordinator.skip_day_outfit(username, data.day_index)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to skip outfit")
+    log_system_event(f"User '{username}' skipped outfit on day index {data.day_index}.")
     return {"message": "Outfit skipped and style profile updated."}
 
 @app.post("/api/plan/swap")
@@ -280,6 +340,7 @@ def swap_outfit(username: str, data: SwapSchema):
     success = coordinator.swap_day_outfit(username, data.day_index, data.item_ids)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to swap outfit")
+    log_system_event(f"User '{username}' swapped day index {data.day_index} with custom item IDs: {data.item_ids}.")
     return {"message": "Outfit swapped, new items set to dirty."}
 
 # Laundry Endpoints
@@ -290,6 +351,7 @@ def get_laundry(username: str):
 @app.post("/api/laundry/wash")
 def run_laundry(username: str):
     cleaned_count = coordinator.wardrobe_agent.clean_all_dirty_items(username)
+    log_system_event(f"User '{username}' washed dirty garments. Cleaned {cleaned_count} items.")
     return {"message": f"Laundry cycle complete. Cleaned {cleaned_count} items."}
 
 # Chat history & Assistant Endpoint
@@ -299,6 +361,7 @@ def get_chat_history(username: str):
 
 @app.post("/api/chat")
 def chat_endpoint(data: ChatSchema):
+    log_system_event(f"User '{data.username}' sent message: \"{data.message[:35]}...\"")
     response = coordinator.stylist_agent.chat_with_stylist(data.username, data.message)
     return {"response": response}
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Check, X, ThumbsUp, ThumbsDown, Shuffle, RefreshCw, Calendar, ArrowRight, ArrowLeft, Cpu 
+  Check, X, ThumbsUp, ThumbsDown, Shuffle, RefreshCw, Calendar, ArrowRight, ArrowLeft, Cpu, Sparkles 
 } from 'lucide-react';
 import MannequinPreview from './MannequinPreview';
 
@@ -356,6 +356,25 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                     </div>
                   )}
                 </div>
+
+                {activeDay.verdict && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '10px 14px',
+                    background: 'rgba(183, 148, 244, 0.04)',
+                    border: '1px dashed rgba(183, 148, 244, 0.15)',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    color: '#B794F4',
+                    lineHeight: 1.45,
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '8px'
+                  }}>
+                    <Sparkles size={14} style={{ flexShrink: 0, marginTop: '2px', color: '#B794F4' }} />
+                    <span><strong>AI Style Verdict:</strong> {activeDay.verdict}</span>
+                  </div>
+                )}
 
                 {activeDay.status === 'Planned' && activeDay.assigned_outfit && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>
