@@ -490,7 +490,7 @@ export default function App() {
   // Auth Screen
   if (!currentUser) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', background: 'var(--bg-primary)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflowY: 'auto', width: '100%', background: 'var(--bg-primary)' }}>
         {updateAvailable && (
           <div style={{
             position: 'sticky',
@@ -907,7 +907,8 @@ export default function App() {
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
-        minHeight: '100vh',
+        height: '100vh',
+        overflowY: 'auto',
         width: isMobile ? '100%' : 'calc(100% - 280px)',
         paddingBottom: isMobile ? '85px' : '0'
       }} className="content-frame">

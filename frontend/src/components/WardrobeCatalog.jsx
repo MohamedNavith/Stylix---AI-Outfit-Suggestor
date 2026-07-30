@@ -136,15 +136,6 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
   const userGender = localStorage.getItem('stylix_gender') || 'male';
 
   const filteredItems = items.filter(item => {
-    // Gender-based customization: if user is male, hide dresses/skirts unless they explicitly search for them
-    if (userGender === 'male' && searchQuery === '') {
-      const name = (item.name || '').toLowerCase();
-      const style = (item.style_tag || '').toLowerCase();
-      if (name.includes('dress') || name.includes('skirt') || style.includes('dress') || style.includes('skirt')) {
-        return false;
-      }
-    }
-
     const categoryMatch = filterCategory === 'all' || item.category === filterCategory;
     const cleanMatch = filterClean === 'all' || 
                        (filterClean === 'clean' && item.is_clean) || 
