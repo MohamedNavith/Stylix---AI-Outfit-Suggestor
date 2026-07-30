@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Check, X, ThumbsUp, ThumbsDown, Shuffle, RefreshCw, Calendar, ArrowRight, ArrowLeft 
+  Check, X, ThumbsUp, ThumbsDown, Shuffle, RefreshCw, Calendar, ArrowRight, ArrowLeft, Cpu 
 } from 'lucide-react';
 import MannequinPreview from './MannequinPreview';
 
@@ -226,12 +226,43 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
       {/* 3D MANNEQUIN & TIMELINE CARDS SPLIT SECTION */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
         
-        {/* Left: 3D Moveable Toy/Mannequin */}
-        <div className="glass-panel" style={{ padding: '20px', background: 'rgba(19, 17, 28, 0.95)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#FFF', fontFamily: 'var(--font-mono)' }}>
-            3D Mannequin Combination Preview
-          </h3>
-          <MannequinPreview outfit={activeOutfit} gender={userGender} />
+        {/* Left: 3D Moveable Toy/Mannequin Placeholder */}
+        <div className="glass-panel" style={{ 
+          padding: '24px', 
+          background: 'rgba(19, 17, 28, 0.95)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          textAlign: 'center',
+          gap: '16px',
+          minHeight: '350px',
+          border: '1px dashed var(--border-accent)'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'var(--accent-glow)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--border-accent)',
+            animation: 'pulse 3s infinite'
+          }}>
+            <Cpu size={32} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#FFF', fontFamily: 'var(--font-mono)' }}>
+              3D Mannequin Preview
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '2px' }}>
+              Coming Soon
+            </span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '280px', lineHeight: '1.4' }}>
+            Interactive 3D rendering of your outfit combinations on a customizable model. Stay tuned!
+          </p>
         </div>
 
         {/* Right: Selected Day Timeline Details */}

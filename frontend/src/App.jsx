@@ -89,6 +89,57 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef(null);
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const formatChatMessage = (text) => {
+    if (!text) return "";
+    const lines = text.split("\n");
+    return lines.map((line, idx) => {
+      let content = line;
+      const boldRegex = /\*\*(.*?)\*\*/g;
+      let parts = [];
+      let lastIndex = 0;
+      let match;
+      while ((match = boldRegex.exec(content)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(content.substring(lastIndex, match.index));
+        }
+        parts.push(<strong key={match.index}>{match[1]}</strong>);
+        lastIndex = boldRegex.lastIndex;
+      }
+      if (lastIndex < content.length) {
+        parts.push(content.substring(lastIndex));
+      }
+      
+      const trimmed = content.trim();
+      if (trimmed.startsWith("* ") || trimmed.startsWith("- ")) {
+        return (
+          <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '8px', margin: '4px 0', alignItems: 'flex-start' }}>
+            <span>•</span>
+            <div>{parts.length > 0 ? parts : trimmed.substring(2)}</div>
+          </div>
+        );
+      }
+      const numMatch = trimmed.match(/^(\d+)\.\s(.*)/);
+      if (numMatch) {
+        return (
+          <div key={idx} style={{ display: 'flex', gap: '8px', paddingLeft: '8px', margin: '4px 0', alignItems: 'flex-start' }}>
+            <span>{numMatch[1]}.</span>
+            <div>{numMatch[2]}</div>
+          </div>
+        );
+      }
+      
+      return <p key={idx} style={{ margin: '4px 0', minHeight: '1em' }}>{parts.length > 0 ? parts : content}</p>;
+    });
+  };
+
   useEffect(() => {
     if (currentUser) {
       changeTheme(theme);
@@ -629,131 +680,132 @@ export default function App() {
             </a>
           </div>
         </div>
-      )}
-      
-      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
+      )}      <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-primary)', position: 'relative' }}>
       
       {/* 1. PC SIDEBAR NAVIGATION & SYSTEM HEARTBEAT */}
-      <div className="pc-sidebar" style={{
-        width: '280px', 
-        borderRight: '1px solid var(--border-color)', 
-        background: 'var(--bg-secondary)', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        padding: '24px', 
-        gap: '24px',
-        position: 'fixed',
-        top: 0,
-        bottom: 0,
-        left: 0,
-        zIndex: 80
-      }}>
-        {/* App Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <StylixLogo size={36} />
-          <div>
-            <h1 style={{ fontSize: '1.45rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h1>
-            <span style={{ fontSize: '0.55rem', color: '#cca43b', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Dress. Wear. Repeat Never.</span>
-          </div>
-        </div>
-
-        {/* Navigation links */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-          <button 
-            onClick={() => setActiveTab('dashboard')}
-            className="btn-secondary"
-            style={{ 
-              justifyContent: 'flex-start', 
-              background: activeTab === 'dashboard' ? 'var(--accent-glow)' : 'transparent',
-              borderColor: activeTab === 'dashboard' ? 'var(--border-accent)' : 'transparent',
-              color: activeTab === 'dashboard' ? 'var(--accent)' : 'var(--text-primary)'
-            }}
-          >
-            <Calendar size={16} /> Planner
-          </button>
-          <button 
-            onClick={() => setActiveTab('catalog')}
-            className="btn-secondary"
-            style={{ 
-              justifyContent: 'flex-start', 
-              background: activeTab === 'catalog' ? 'var(--accent-glow)' : 'transparent',
-              borderColor: activeTab === 'catalog' ? 'var(--border-accent)' : 'transparent',
-              color: activeTab === 'catalog' ? 'var(--accent)' : 'var(--text-primary)'
-            }}
-          >
-            <Layers size={16} /> Wardrobe
-          </button>
-          <button 
-            onClick={() => setActiveTab('laundry')}
-            className="btn-secondary"
-            style={{ 
-              justifyContent: 'flex-start', 
-              background: activeTab === 'laundry' ? 'var(--accent-glow)' : 'transparent',
-              borderColor: activeTab === 'laundry' ? 'var(--border-accent)' : 'transparent',
-              color: activeTab === 'laundry' ? 'var(--accent)' : 'var(--text-primary)'
-            }}
-          >
-            <Droplet size={16} /> Laundry Pool
-          </button>
-          <a 
-            href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-secondary"
-            style={{ 
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-start', 
-              gap: '8px',
-              background: 'transparent',
-              borderColor: 'transparent',
-              color: 'var(--text-primary)',
-              textDecoration: 'none',
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '0.85rem'
-            }}
-          >
-            <Send size={16} style={{ color: '#0088cc' }} /> <span>Telegram Bot</span>
-          </a>
-        </nav>
-
-        {/* Consolidated Agent Heartbeats */}
-        <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Cpu size={16} style={{ color: '#cca43b' }} />
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              Dress. Wear. Repeat Never.
-            </span>
+      {!isMobile && (
+        <div className="pc-sidebar" style={{
+          width: '280px', 
+          borderRight: '1px solid var(--border-color)', 
+          background: 'var(--bg-secondary)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          padding: '24px', 
+          gap: '24px',
+          position: 'fixed',
+          top: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 80
+        }}>
+          {/* App Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <StylixLogo size={36} />
+            <div>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h1>
+              <span style={{ fontSize: '0.55rem', color: '#cca43b', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Dress. Wear. Repeat Never.</span>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.7rem' }}>
-            {[
-              "Coordinator Agent", "Stylist Agent", "Wardrobe Agent"
-            ].map(agent => (
-              <div key={agent} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{agent}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div className="breathing-dot" style={{
-                    width: '6px', height: '6px', borderRadius: '50%', background: '#10B981',
-                    boxShadow: '0 0 8px #10B981', animation: 'breath 2s infinite ease-in-out'
-                  }} />
-                  <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6rem' }}>ACTIVE</span>
+          {/* Navigation links */}
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
+            <button 
+              onClick={() => { setActiveTab('dashboard'); setShowChat(false); }}
+              className="btn-secondary"
+              style={{ 
+                justifyContent: 'flex-start', 
+                background: activeTab === 'dashboard' && !showChat ? 'var(--accent-glow)' : 'transparent',
+                borderColor: activeTab === 'dashboard' && !showChat ? 'var(--border-accent)' : 'transparent',
+                color: activeTab === 'dashboard' && !showChat ? 'var(--accent)' : 'var(--text-primary)'
+              }}
+            >
+              <Calendar size={16} /> Planner
+            </button>
+            <button 
+              onClick={() => { setActiveTab('catalog'); setShowChat(false); }}
+              className="btn-secondary"
+              style={{ 
+                justifyContent: 'flex-start', 
+                background: activeTab === 'catalog' && !showChat ? 'var(--accent-glow)' : 'transparent',
+                borderColor: activeTab === 'catalog' && !showChat ? 'var(--border-accent)' : 'transparent',
+                color: activeTab === 'catalog' && !showChat ? 'var(--accent)' : 'var(--text-primary)'
+              }}
+            >
+              <Layers size={16} /> Wardrobe
+            </button>
+            <button 
+              onClick={() => { setActiveTab('laundry'); setShowChat(false); }}
+              className="btn-secondary"
+              style={{ 
+                justifyContent: 'flex-start', 
+                background: activeTab === 'laundry' && !showChat ? 'var(--accent-glow)' : 'transparent',
+                borderColor: activeTab === 'laundry' && !showChat ? 'var(--border-accent)' : 'transparent',
+                color: activeTab === 'laundry' && !showChat ? 'var(--accent)' : 'var(--text-primary)'
+              }}
+            >
+              <Droplet size={16} /> Laundry Pool
+            </button>
+            <a 
+              href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary"
+              style={{ 
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-start', 
+                gap: '8px',
+                background: 'transparent',
+                borderColor: 'transparent',
+                color: 'var(--text-primary)',
+                textDecoration: 'none',
+                width: '100%',
+                padding: '8px 12px',
+                fontSize: '0.85rem'
+              }}
+            >
+              <Send size={16} style={{ color: '#0088cc' }} /> <span>Telegram Bot</span>
+            </a>
+          </nav>
+
+          {/* Consolidated Agent Heartbeats */}
+          <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Cpu size={16} style={{ color: '#cca43b' }} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Dress. Wear. Repeat Never.
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.7rem' }}>
+              {[
+                "Coordinator Agent", "Stylist Agent", "Wardrobe Agent"
+              ].map(agent => (
+                <div key={agent} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{agent}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div className="breathing-dot" style={{
+                      width: '6px', height: '6px', borderRadius: '50%', background: '#10B981',
+                      boxShadow: '0 0 8px #10B981', animation: 'breath 2s infinite ease-in-out'
+                    }} />
+                    <span style={{ color: '#10B981', fontWeight: 600, fontSize: '0.6rem' }}>ACTIVE</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* 2. DYNAMIC CONTENT AREA */}
       <div style={{
-        marginLeft: '280px',
+        marginLeft: isMobile ? '0' : '280px',
         flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        width: 'calc(100% - 280px)'
+        width: isMobile ? '100%' : 'calc(100% - 280px)',
+        paddingBottom: isMobile ? '85px' : '0'
       }} className="content-frame">
         
         {/* Top Header */}
@@ -761,41 +813,52 @@ export default function App() {
           position: 'sticky', top: 0, zIndex: 70,
           background: 'var(--bg-primary)', 
           borderBottom: '1px solid var(--border-color)',
-          padding: '16px 24px',
+          padding: isMobile ? '12px 16px' : '16px 24px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <div>
-            <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stylix 24/7 Wardrobe Orchestrator</h2>
-          </div>
+          {isMobile ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <StylixLogo size={32} />
+              <div>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF', margin: 0 }}>Stylix</h1>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stylix 24/7 Wardrobe Orchestrator</h2>
+            </div>
+          )}
 
           {/* Profile Details Trigger (Top Right) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <a 
-              href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
-              target="_blank" 
-              rel="noopener noreferrer"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                background: 'linear-gradient(135deg, #0088cc 0%, #0077b5 100%)',
-                color: '#FFF',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                textDecoration: 'none',
-                boxShadow: '0 4px 12px rgba(0, 136, 204, 0.2)',
-                transition: 'transform 0.2s, opacity 0.2s',
-                marginRight: '6px'
-              }}
-              className="hover-scale"
-            >
-              <Send size={14} />
-              <span>Telegram Bot</span>
-            </a>
+            {!isMobile && (
+              <a 
+                href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  background: 'linear-gradient(135deg, #0088cc 0%, #0077b5 100%)',
+                  color: '#FFF',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(0, 136, 204, 0.2)',
+                  transition: 'transform 0.2s, opacity 0.2s',
+                  marginRight: '6px'
+                }}
+                className="hover-scale"
+              >
+                <Send size={14} />
+                <span>Telegram Bot</span>
+              </a>
+            )}
             <div 
               onClick={() => setShowSettings(true)}
               style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
@@ -808,10 +871,12 @@ export default function App() {
               }}>
                 <User size={18} />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFF' }}>{localStorage.getItem('stylix_name') || currentUser}</span>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Settings</span>
-              </div>
+              {!isMobile && (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFF' }}>{localStorage.getItem('stylix_name') || currentUser}</span>
+                  <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Settings</span>
+                </div>
+              )}
             </div>
             
             <button 
@@ -869,19 +934,30 @@ export default function App() {
           {activeTab === 'laundry' && <LaundryHub apiHost={API_HOST} username={currentUser} stats={laundryStatsTrigger} onStatsChange={() => setLaundryStatsTrigger(prev => prev + 1)} />}
         </main>
       </div>
-
-      {/* 3. AI CHATBOT SPARKLE BUTTON */}
-      <div className="chat-fab" onClick={() => setShowChat(!showChat)} style={{ bottom: '24px' }}>
-        {showChat ? <X size={22} /> : <Sparkles size={22} />}
-      </div>
+            {/* 3. AI CHATBOT SPARKLE BUTTON (PC ONLY) */}
+      {!isMobile && (
+        <div className="chat-fab" onClick={() => setShowChat(!showChat)} style={{ bottom: '24px' }}>
+          {showChat ? <X size={22} /> : <Sparkles size={22} />}
+        </div>
+      )}
 
       {/* 4. CHAT BOT DRAWER */}
       {showChat && (
         <div style={{
-          position: 'fixed', bottom: '90px', right: '24px', width: '90%', maxWidth: '360px',
-          height: '460px', borderRadius: '16px', display: 'flex', flexDirection: 'column',
-          backgroundColor: '#13111C', border: '1px solid var(--border-accent)',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.6)', zIndex: 110, overflow: 'hidden'
+          position: 'fixed', 
+          bottom: isMobile ? '80px' : '90px', 
+          right: isMobile ? '10px' : '24px', 
+          width: isMobile ? 'calc(100% - 20px)' : '90%', 
+          maxWidth: isMobile ? 'none' : '360px',
+          height: isMobile ? 'calc(100vh - 170px)' : '460px', 
+          borderRadius: '16px', 
+          display: 'flex', 
+          flexDirection: 'column',
+          backgroundColor: '#13111C', 
+          border: '1px solid var(--border-accent)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.6)', 
+          zIndex: 110, 
+          overflow: 'hidden'
         }} className="animate-fade-up">
           <div style={{ 
             padding: '14px 16px', borderBottom: '1px solid var(--border-color)', 
@@ -893,28 +969,30 @@ export default function App() {
               <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Stylix AI Stylist</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <a 
-                href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
-                target="_blank" 
-                rel="noopener noreferrer"
-                title="Chat with Stylix on Telegram"
-                style={{ 
-                  background: 'rgba(255,255,255,0.15)', 
-                  border: 'none', 
-                  color: '#FFF', 
-                  borderRadius: '50%', 
-                  width: '26px', 
-                  height: '26px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer',
-                  textDecoration: 'none'
-                }}
-              >
-                <Send size={12} />
-              </a>
-              <button onClick={() => setShowChat(false)} style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              {!isMobile && (
+                <a 
+                  href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  title="Chat with Stylix on Telegram"
+                  style={{ 
+                    background: 'rgba(255,255,255,0.15)', 
+                    border: 'none', 
+                    color: '#FFF', 
+                    borderRadius: '50%', 
+                    width: '26px', 
+                    height: '26px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    cursor: 'pointer',
+                    textDecoration: 'none'
+                  }}
+                >
+                  <Send size={12} />
+                </a>
+              )}
+              <button onClick={() => { setShowChat(false); }} style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                 <X size={16} />
               </button>
             </div>
@@ -928,16 +1006,16 @@ export default function App() {
                   key={index} 
                   style={{
                     alignSelf: isUser ? 'flex-end' : 'flex-start',
-                    maxWidth: '80%',
+                    maxWidth: '85%',
                     padding: '10px 14px',
                     borderRadius: isUser ? '12px 12px 0 12px' : '12px 12px 12px 0',
                     backgroundColor: isUser ? 'var(--accent)' : 'rgba(255,255,255,0.03)',
                     color: isUser ? 'var(--bg-primary)' : 'var(--text-primary)',
                     fontSize: '0.85rem',
-                    lineHeight: 1.4
+                    lineHeight: 1.45
                   }}
                 >
-                  {msg.text}
+                  {isUser ? msg.text : formatChatMessage(msg.text)}
                 </div>
               );
             })}
@@ -946,6 +1024,38 @@ export default function App() {
                 Stylix AI is typing...
               </div>
             )}
+            
+            {chatMessages.length <= 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', padding: '10px 4px', marginTop: '10px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Quick Prompts:</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {[
+                    "Suggest a formal outfit",
+                    "What should I wear today?",
+                    "Do I have clean shirts?",
+                    "Give me a casual styling tip"
+                  ].map((prompt, pIdx) => (
+                    <button
+                      key={pIdx}
+                      type="button"
+                      onClick={() => setChatInput(prompt)}
+                      className="btn-secondary"
+                      style={{ 
+                        fontSize: '0.75rem', 
+                        padding: '6px 12px', 
+                        borderRadius: '20px',
+                        background: 'rgba(255,255,255,0.02)',
+                        borderColor: 'var(--border-color)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             <div ref={chatEndRef} />
           </div>
 
@@ -972,6 +1082,77 @@ export default function App() {
               <Send size={14} />
             </button>
           </form>
+        </div>
+      )}
+
+      {/* 5. MOBILE BOTTOM TAB BAR */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed',
+          bottom: '15px',
+          left: '15px',
+          right: '15px',
+          height: '65px',
+          backgroundColor: 'rgba(19, 17, 28, 0.95)',
+          backdropFilter: 'blur(12px)',
+          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          zIndex: 100
+        }}>
+          <button
+            onClick={() => { setActiveTab('dashboard'); setShowChat(false); }}
+            style={{
+              background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              color: activeTab === 'dashboard' && !showChat ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Calendar size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Planner</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('catalog'); setShowChat(false); }}
+            style={{
+              background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              color: activeTab === 'catalog' && !showChat ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Layers size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Wardrobe</span>
+          </button>
+          <button
+            onClick={() => { setActiveTab('laundry'); setShowChat(false); }}
+            style={{
+              background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              color: activeTab === 'laundry' && !showChat ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Droplet size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Laundry</span>
+          </button>
+          <button
+            onClick={() => { setShowChat(!showChat); }}
+            style={{
+              background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              color: showChat ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Sparkles size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Chat</span>
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            style={{
+              background: 'transparent', border: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+              color: showSettings ? 'var(--accent)' : 'var(--text-secondary)', cursor: 'pointer'
+            }}
+          >
+            <Settings size={20} />
+            <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>Settings</span>
+          </button>
         </div>
       )}
 

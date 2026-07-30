@@ -382,7 +382,9 @@ class StylistAgent:
             f"[STYLE PROFILE]:\n" + json.dumps(profile) + "\n\n"
             f"[WEEKLY PLANNER]:\n" + "\n".join(plan_summary) + "\n\n"
             "Help the user decide what to wear, suggest changes, check if clothes are clean, or explain how their laundry rotation works. "
-            "Avoid meta-language. Respond in a helpful, direct tone."
+            "IMPORTANT: Always format your response cleanly using markdown list bullets (*), bold text (**), and headings if helpful. "
+            "Use emojis for categories (e.g. 👕 for shirts, 👖 for pants, 🧺 for laundry, 📅 for schedules). "
+            "Never output plain paragraphs without styling—keep lists structured, clear, and highly organized."
         )
 
         # 1. Try Groq (groq.com) API
