@@ -419,7 +419,7 @@ class StylistAgent:
 
     def chat_with_stylist(self, username: str, message: str) -> str:
         self.db.save_chat_message(username, "user", message)
-        wardrobe = self.db.get_wardrobe(username, select_cols="id,name,category,color,formality,is_clean")
+        wardrobe = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean")
         profile = self.get_profile(username)
         plan = self.db.get_routine_plan(username)
         user_info = self.db.get_user(username) or {}
@@ -431,7 +431,7 @@ class StylistAgent:
         
         # Build context
         wardrobe_summary = [
-            f"- {item['name']} [ID: {item['id']}]: Category={item['category']}, Color={item['color']}, Formality={item['formality']}, Status={'Clean' if item['is_clean'] else 'Dirty'}"
+            f"- {item['name']} [ID: {item['id']}]: Category={item['category']}, Color={item['color']}, Fabric={item.get('fabric', 'N/A')}, Formality={item['formality']}, Pattern={item.get('pattern', 'solid')}, StyleTag={item.get('style_tag', 'N/A')}, Status={'Clean' if item['is_clean'] else 'Dirty'}"
             for item in wardrobe
         ]
         plan_summary = []

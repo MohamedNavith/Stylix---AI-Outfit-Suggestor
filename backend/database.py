@@ -376,16 +376,31 @@ class EncryptedDatabase:
             self.save()
 
     def get_routine_plan(self, username: str) -> List[Dict[str, Any]]:
+        raw_plan = []
         if self.is_cloud:
             try:
                 res = httpx.get(f"{SUPABASE_URL}/rest/v1/routine_plans?username=eq.{username}&order=day_index.asc", headers=self.headers)
                 if res.status_code == 200:
-                    return res.json()
+                    raw_plan = res.json()
             except Exception as e:
                 print(f"Error fetching routine plan: {e}")
-            return []
-        user = self.get_user(username)
-        return user["routine_plan"] if user else []
+        else:
+            user = self.get_user(username)
+            raw_plan = user["routine_plan"] if user else []
+
+        if raw_plan:
+            try:
+                wardrobe = self.get_wardrobe(username, select_cols="id,image_data")
+                image_map = {item["id"]: item.get("image_data") for item in wardrobe if item.get("image_data")}
+                for day in raw_plan:
+                    if "assigned_outfit" in day and isinstance(day["assigned_outfit"], list):
+                        for item in day["assigned_outfit"]:
+                            if not item.get("image_data"):
+                                item["image_data"] = image_map.get(item["id"])
+            except Exception as e:
+                print(f"Error enriching plan image data: {e}")
+
+        return raw_plan
 
     def update_routine_plan(self, username: str, plan: List[Dict[str, Any]]):
         if self.is_cloud:
