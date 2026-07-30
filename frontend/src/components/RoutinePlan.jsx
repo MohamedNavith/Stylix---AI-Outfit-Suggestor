@@ -12,6 +12,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
   const [cleanItems, setCleanItems] = useState([]);
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [userGender, setUserGender] = useState('male');
+  const [zoomImage, setZoomImage] = useState(null);
 
   const scrollRef = useRef(null);
 
@@ -322,20 +323,53 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                             alignItems: 'center'
                           }}
                         >
-                          <div>
-                            <span style={{ 
-                              display: 'block', 
-                              fontSize: '0.6rem', 
-                              color: '#9F7AEA', 
-                              fontWeight: 700,
-                              letterSpacing: '0.05em',
-                              marginBottom: '2px'
-                            }}>
-                              {label}
-                            </span>
-                            <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontWeight: 500 }}>
-                              {item.name}
-                            </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {item.image_data ? (
+                              <img 
+                                src={item.image_data} 
+                                alt={item.name} 
+                                onClick={() => setZoomImage(item.image_data)}
+                                style={{
+                                  width: '36px',
+                                  height: '36px',
+                                  borderRadius: '6px',
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  objectFit: 'cover',
+                                  cursor: 'pointer',
+                                  transition: 'transform 0.2s'
+                                }}
+                                className="hover:scale-110"
+                              />
+                            ) : (
+                              <div style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '6px',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                display: 'flex',
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                background: 'rgba(255,255,255,0.02)',
+                                fontSize: '0.9rem'
+                              }}>
+                                👕
+                              </div>
+                            )}
+                            <div>
+                              <span style={{ 
+                                display: 'block', 
+                                fontSize: '0.6rem', 
+                                color: '#9F7AEA', 
+                                fontWeight: 700,
+                                letterSpacing: '0.05em',
+                                marginBottom: '2px'
+                              }}>
+                                {label}
+                              </span>
+                              <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontWeight: 500 }}>
+                                {item.name}
+                              </span>
+                            </div>
                           </div>
                           
                           {activeDay.status === 'Planned' && (
@@ -480,6 +514,34 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                 ))
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dynamic Fullscreen Image Zoom Overlay */}
+      {zoomImage && (
+        <div 
+          onClick={() => setZoomImage(null)}
+          style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.95)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 20000, cursor: 'zoom-out', backdropFilter: 'blur(8px)'
+          }}
+        >
+          <img 
+            src={zoomImage} 
+            alt="Zoomed garment" 
+            style={{ 
+              maxWidth: '90%', 
+              maxHeight: '85vh', 
+              borderRadius: '16px', 
+              boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+              border: '2px solid rgba(255,255,255,0.1)',
+              objectFit: 'contain'
+            }} 
+          />
+          <div style={{ position: 'absolute', bottom: '30px', color: '#FFF', fontSize: '0.85rem', fontWeight: 600 }}>
+            Tap anywhere to close
           </div>
         </div>
       )}

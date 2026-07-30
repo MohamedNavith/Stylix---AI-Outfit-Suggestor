@@ -95,7 +95,8 @@ class CoordinatorAgent:
                     "formality": item_detail["formality"],
                     "style_tag": item_detail["style_tag"],
                     "mesh_type": item_detail.get("mesh_type", ""),
-                    "texture_map": item_detail.get("texture_map", "")
+                    "texture_map": item_detail.get("texture_map", ""),
+                    "image_data": item_detail.get("image_data", None)
                 })
 
         if not swapped_items:

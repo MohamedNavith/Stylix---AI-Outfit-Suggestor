@@ -40,7 +40,6 @@ class WardrobeAgent:
         return self.db.get_wardrobe(username, select_cols)
 
     def catalog_clothing_item(self, image_base64: str, file_name: Optional[str] = None) -> Dict[str, Any]:
-        client = get_gemini_client()
         fallback_tags = {
             "name": "Custom Clothing Item",
             "category": "top",
@@ -51,7 +50,7 @@ class WardrobeAgent:
             "style_tag": "streetwear"
         }
 
-        if file_name and not client:
+        if file_name:
             name_lower = file_name.lower()
             if any(k in name_lower for k in ["shirt", "tee", "tshirt", "kurta"]):
                 fallback_tags.update({"category": "top", "name": file_name.split(".")[0].replace("_", " ").title()})
@@ -62,43 +61,107 @@ class WardrobeAgent:
             elif any(k in name_lower for k in ["shoe", "sneaker", "boot", "oxford"]):
                 fallback_tags.update({"category": "footwear", "name": file_name.split(".")[0].replace("_", " ").title()})
 
-        if not client:
-            return fallback_tags
-
+        # 1. Try Groq Vision API
         try:
-            if "," in image_base64:
-                base64_data = image_base64.split(",")[1]
-                mime_type = image_base64.split(";")[0].split(":")[1]
-            else:
-                base64_data = image_base64
-                mime_type = "image/jpeg"
-                
-            image_bytes = base64.b64decode(base64_data)
-            
-            prompt = (
-                "Analyze this clothing item photo. Output a strict JSON object with these fields:\n"
-                "1. name (a short description like 'Black Denim Jacket')\n"
-                "2. category (must be exactly one of: 'top', 'bottom', 'outerwear', 'footwear', 'accessory')\n"
-                "3. color (primary color of the item, like 'navy', 'black', 'white', 'beige', etc.)\n"
-                "4. fabric (fabric type, like 'denim', 'cotton', 'wool', 'linen', etc.)\n"
-                "5. formality (must be exactly one of: 'casual', 'smart-casual', 'formal')\n"
-                "6. pattern (like 'solid', 'stripes', 'checkered', 'graphic', 'floral', etc.)\n"
-                "7. style_tag (a single aesthetic tag like 'minimalist', 'streetwear', 'classic', 'athletic', 'refined')\n"
-                "Keep the JSON values concise and strictly aligned to the category values."
-            )
+            from config_keys import DEFAULT_GROQ_API_KEY
+        except ImportError:
+            DEFAULT_GROQ_API_KEY = ""
+        groq_key = os.environ.get("GROQ_API_KEY") or DEFAULT_GROQ_API_KEY
+        
+        if groq_key:
+            try:
+                if "," in image_base64:
+                    base64_data = image_base64.split(",")[1]
+                    mime_type = image_base64.split(";")[0].split(":")[1]
+                else:
+                    base64_data = image_base64
+                    mime_type = "image/jpeg"
+                    
+                headers = {
+                    "Authorization": f"Bearer {groq_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "llama-3.2-11b-vision-preview",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Analyze this clothing item photo. Output a strict JSON object with these fields:\n"
+                                        "1. name (a short description like 'Black Denim Jacket')\n"
+                                        "2. category (must be exactly one of: 'top', 'bottom', 'outerwear', 'footwear', 'accessory')\n"
+                                        "3. color (primary color of the item, like 'navy', 'black', 'white', 'beige', etc.)\n"
+                                        "4. fabric (fabric type, like 'denim', 'cotton', 'wool', 'linen', etc.)\n"
+                                        "5. formality (must be exactly one of: 'casual', 'smart-casual', 'formal')\n"
+                                        "6. pattern (like 'solid', 'stripes', 'checkered', 'graphic', 'floral', etc.)\n"
+                                        "7. style_tag (a single aesthetic tag like 'minimalist', 'streetwear', 'classic', 'athletic', 'refined')\n"
+                                        "Keep the JSON values concise and strictly aligned to the category values. Only return the raw JSON block without markdown formatting."
+                                    )
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:{mime_type};base64,{base64_data}"
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "temperature": 0.2,
+                    "response_format": {"type": "json_object"}
+                }
+                res = httpx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=25.0)
+                if res.status_code == 200:
+                    result_json = res.json()["choices"][0]["message"]["content"].strip()
+                    import re
+                    json_match = re.search(r'\{.*?\}', result_json, re.DOTALL)
+                    if json_match:
+                        print("Groq Vision classified garment photo successfully.")
+                        return json.loads(json_match.group(0))
+            except Exception as e:
+                print(f"Groq Vision API execution failed, checking backup: {e}")
 
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[
-                    types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-                    prompt
-                ],
-                config=types.GenerateContentConfig(response_mime_type="application/json")
-            )
-            return json.loads(response.text.strip())
-        except Exception as e:
-            print(f"Error in catalog_clothing_item: {e}")
-            return fallback_tags
+        # 2. Fallback to Gemini API
+        client = get_gemini_client()
+        if client:
+            try:
+                if "," in image_base64:
+                    base64_data = image_base64.split(",")[1]
+                    mime_type = image_base64.split(";")[0].split(":")[1]
+                else:
+                    base64_data = image_base64
+                    mime_type = "image/jpeg"
+                    
+                image_bytes = base64.b64decode(base64_data)
+                
+                prompt = (
+                    "Analyze this clothing item photo. Output a strict JSON object with these fields:\n"
+                    "1. name (a short description like 'Black Denim Jacket')\n"
+                    "2. category (must be exactly one of: 'top', 'bottom', 'outerwear', 'footwear', 'accessory')\n"
+                    "3. color (primary color of the item, like 'navy', 'black', 'white', 'beige', etc.)\n"
+                    "4. fabric (fabric type, like 'denim', 'cotton', 'wool', 'linen', etc.)\n"
+                    "5. formality (must be exactly one of: 'casual', 'smart-casual', 'formal')\n"
+                    "6. pattern (like 'solid', 'stripes', 'checkered', 'graphic', 'floral', etc.)\n"
+                    "7. style_tag (a single aesthetic tag like 'minimalist', 'streetwear', 'classic', 'athletic', 'refined')\n"
+                    "Keep the JSON values concise and strictly aligned to the category values."
+                )
+
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[
+                        types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                        prompt
+                    ],
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                )
+                return json.loads(response.text.strip())
+            except Exception as e:
+                print(f"Backup Gemini API call failed: {e}")
+                
+        return fallback_tags
 
     def process_video_frames_3d(self, video_base64: str, file_name: Optional[str] = None) -> Dict[str, Any]:
         """

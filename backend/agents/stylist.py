@@ -233,7 +233,7 @@ class StylistAgent:
         return score
 
     def generate_weekly_plan(self, username: str, context_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        all_items = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean,last_worn_date")
+        all_items = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean,last_worn_date,image_data")
         profile = self.db.get_style_profile(username)
         
         user_info = self.db.get_user(username) or {}
@@ -337,7 +337,8 @@ class StylistAgent:
                 "formality": item["formality"],
                 "style_tag": item["style_tag"],
                 "mesh_type": item.get("mesh_type", ""),
-                "texture_map": item.get("texture_map", "")
+                "texture_map": item.get("texture_map", ""),
+                "image_data": item.get("image_data", None)
             } for item in assigned_outfit_details]
                 
             updated_plan.append({

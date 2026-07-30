@@ -1564,14 +1564,17 @@ export default function App() {
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ flexGrow: 1 }}>
-                  <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>WhatsApp Link</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>
+                    WhatsApp Link
+                    <span style={{ fontSize: '0.6rem', color: 'var(--accent)', background: 'var(--accent-glow)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-accent)', fontWeight: 'bold' }}>COMING SOON</span>
+                  </span>
                   <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Chat with wardrobe via WhatsApp</span>
                 </div>
                 <input 
                   type="checkbox" 
-                  checked={whatsappLinked} 
-                  onChange={(e) => setWhatsappLinked(e.target.checked)}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  disabled
+                  checked={false} 
+                  style={{ width: '18px', height: '18px', cursor: 'not-allowed', opacity: 0.5 }}
                 />
               </div>
 
