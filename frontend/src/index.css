@@ -84,7 +84,8 @@ body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  overflow: hidden; /* Avoid double scrolling */
+  overflow-x: hidden;
+  overflow-y: auto;
   min-height: 100vh;
 }
 
@@ -226,17 +227,25 @@ body {
 
 .form-input {
   width: 100%;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.3);
+  padding: 14px 16px;
+  background: var(--bg-primary);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   color: var(--text-primary);
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
   transition: var(--transition-smooth);
+}
+
+.form-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
 }
 
 .form-input:focus {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
 /* Floating AI Chatbot Action Button */

@@ -785,7 +785,23 @@ export default function App() {
                 />
               </div>
 
-              <button type="submit" className="btn-primary" style={{ marginTop: '8px', background: 'var(--accent)', color: 'white', padding: '12px 24px', fontSize: '0.95rem' }}>
+              <button 
+                type="submit" 
+                className="btn-primary" 
+                style={{ 
+                  marginTop: '16px', 
+                  background: 'var(--accent)', 
+                  color: 'var(--bg-primary)', 
+                  padding: '14px 24px', 
+                  fontSize: '0.95rem',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  width: '100%',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px var(--accent-glow)'
+                }}
+              >
                 {authLoading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Complete Registration'}
               </button>
             </form>
@@ -793,7 +809,7 @@ export default function App() {
             <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
               <span 
                 onClick={() => { setIsLogin(!isLogin); setAuthError(''); }}
-                style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+                style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline', display: 'inline-block', padding: '8px 12px' }}
               >
                 {isLogin ? "Need a new account? Sign Up" : "Already have an account? Sign In"}
               </span>
@@ -809,18 +825,20 @@ export default function App() {
                   <a 
                     href="/stylix.apk" 
                     download="stylix.apk"
-                    className="btn-primary" 
+                    className="btn-secondary" 
                     style={{ 
-                      padding: '10px 16px', 
+                      padding: '12px 16px', 
                       fontSize: '0.85rem', 
                       justifyContent: 'center',
-                      background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                      color: 'white',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
                       textDecoration: 'none',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      fontWeight: 600
                     }}
                   >
                     <Cpu size={14} /> Download Android App (APK)
