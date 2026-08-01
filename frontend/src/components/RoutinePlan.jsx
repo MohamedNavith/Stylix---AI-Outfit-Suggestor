@@ -337,61 +337,43 @@ export default function RoutinePlan({ apiHost, username, wardrobeItems, onStatsC
       {/* 3D MANNEQUIN & TIMELINE CARDS SPLIT SECTION */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px', marginTop: '20px' }}>
         
-        {/* Left: 3D Moveable Toy/Mannequin */}
+        {/* Left: 3D Moveable Toy/Mannequin Placeholder */}
         <div className="glass-panel" style={{ 
-          padding: '20px', 
+          padding: '24px', 
           background: 'var(--bg-secondary)', 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center', 
           justifyContent: 'center', 
+          textAlign: 'center',
+          gap: '16px',
           minHeight: '350px',
-          border: '1px solid var(--border-color)',
-          position: 'relative',
-          borderRadius: '16px'
+          border: '1px dashed var(--border-accent)'
         }}>
-          {activeOutfit && activeOutfit.length > 0 ? (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ position: 'absolute', top: '15px', left: '15px', zIndex: 10 }}>
-                <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 600 }}>
-                  3D Visualizer
-                </span>
-                <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', margin: '2px 0 0 0' }}>
-                  Active Day Combo
-                </h4>
-              </div>
-              <div style={{ width: '100%', height: '350px' }}>
-                <MannequinPreview outfit={activeOutfit} gender={userGender} />
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center', padding: '24px' }}>
-              <div style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '50%',
-                background: 'var(--accent-glow)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: '1px solid var(--border-accent)',
-                animation: 'pulse 3s infinite'
-              }}>
-                <Cpu size={32} style={{ color: 'var(--accent)' }} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
-                  3D Mannequin
-                </h3>
-                <span style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
-                  Dress the Model
-                </span>
-              </div>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '260px', lineHeight: '1.4' }}>
-                No outfit generated for this day yet. Click <strong>"Shuffle Outfits"</strong> above or add garments to catalog to see them rendered in 3D!
-              </p>
-            </div>
-          )}
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: 'var(--accent-glow)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '1px solid var(--border-accent)',
+            animation: 'pulse 3s infinite'
+          }}>
+            <Cpu size={32} style={{ color: 'var(--accent)' }} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              3D Mannequin Preview
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '2px' }}>
+              Coming Soon
+            </span>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '280px', lineHeight: '1.4' }}>
+            Interactive 3D rendering of your outfit combinations on a customizable model. Stay tuned!
+          </p>
         </div>
 
         {/* Right: Selected Day Timeline Details */}

@@ -9,7 +9,6 @@ import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
 import AdminPanel from './components/AdminPanel';
 import { BUILD_ID } from './version';
-import landingHero from './assets/stylix_landing_hero.jpg';
 
 let API_HOST = import.meta.env.VITE_API_URL;
 if (!API_HOST) {
@@ -692,30 +691,6 @@ export default function App() {
                 <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>Automatic laundry and rotation tracking</span>
               </div>
             </div>
-
-            {/* Landing Hero Product Image */}
-            <div style={{ 
-              marginTop: '30px',
-              borderRadius: '16px',
-              border: '1px solid var(--border-color)',
-              overflow: 'hidden',
-              boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
-              background: 'var(--bg-secondary)',
-              padding: '6px',
-              display: isMobile ? 'none' : 'block'
-            }}>
-              <img 
-                src={landingHero} 
-                alt="Stylix 3D Mannequin Visualizer Preview" 
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  borderRadius: '12px',
-                  objectFit: 'cover',
-                  display: 'block'
-                }} 
-              />
-            </div>
           </div>
 
           {/* Right Panel: Login Card */}
@@ -1062,7 +1037,7 @@ export default function App() {
           {/* Consolidated Agent Heartbeats */}
           <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
-              🤖 System Agents Network
+              🤖 Touch the agents to see its purpose!
             </span>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
@@ -1141,17 +1116,20 @@ export default function App() {
                   gap: '6px',
                   padding: '6px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-color)',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   color: 'var(--text-primary)',
                   fontSize: '0.8rem',
                   fontWeight: 600,
                   cursor: 'pointer',
                   marginRight: '6px',
-                  transition: 'background 0.2s'
+                  transition: 'all 0.2s ease-in-out',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                 }}
               >
-                <span>❓ How it Works</span>
+                <span>✨ Take Tour</span>
               </button>
             )}
             {!isMobile && (
@@ -1985,25 +1963,28 @@ export default function App() {
         </div>
       )}
 
+
       {/* 6. INTERACTIVE ONBOARDING WALKTHROUGH TOUR */}
       {showOnboarding && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-          backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center',
-          alignItems: 'center', zIndex: 99999, backdropFilter: 'blur(8px)', padding: '20px'
+          backgroundColor: 'rgba(5, 4, 10, 0.65)', display: 'flex', justifyContent: 'center',
+          alignItems: 'center', zIndex: 99999, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', padding: '20px'
         }}>
-          <div className="glass-panel animate-scale" style={{
+          <div className="glass-panel animate-scale fade-step" style={{
             width: '95%',
-            maxWidth: '600px',
-            padding: '28px',
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-accent)',
-            boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+            maxWidth: '560px',
+            padding: '32px',
+            background: 'rgba(16, 12, 26, 0.45)',
+            backdropFilter: 'blur(30px)',
+            WebkitBackdropFilter: 'blur(30px)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 24px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
+            gap: '24px',
             position: 'relative',
-            borderRadius: '16px'
+            borderRadius: '24px'
           }}>
             <button 
               onClick={() => { localStorage.setItem('stylix_onboarded', 'true'); setShowOnboarding(false); }}
@@ -2013,14 +1994,14 @@ export default function App() {
             </button>
 
             {onboardingStep === 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>👔</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>Welcome to Stylix! 🤖</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Stylix is your intelligent <strong>AI wardrobe assistant & personal stylist</strong>. 
                   Every morning, deciding what to wear, checking laundry, and matching colors takes time and creates decision fatigue. Stylix solves this by digitizing your physical closet, tracking clean clothes, and automatically planning your daily outfits.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '6px' }}>💡 How it helps you:</h4>
                   <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <li><strong>Busy Mornings:</strong> Instantly check your coordinated outfit timeline. No more thinking required.</li>
@@ -2032,14 +2013,14 @@ export default function App() {
             )}
 
             {onboardingStep === 1 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>📅</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>1. Coordinated Timeline Planner</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   The <strong>Planner</strong> maps your daily activities (like "Office Day", "Client Lunch", "Casual Friday") to custom, weather-aligned outfits. 
                   It handles everything automatically by selecting clean matches that respect color harmony and styles.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>How to use it:</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     Don't like the AI's selection? Simply click <strong>Shuffle Outfits</strong> to refresh the plan, or click the refresh icon on any specific item to swap it with another clean alternative!
@@ -2049,14 +2030,14 @@ export default function App() {
             )}
 
             {onboardingStep === 2 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>📸</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>2. Add Garments via Groq Vision AI</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Adding clothes is effortless. Navigate to the <strong>Wardrobe</strong> catalog tab. You can upload a photo of your item on a hanger or record a short 360° video. 
                   Our vision AI will automatically identify the fabric, color tone, formality rating, and category.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Why this is cool:</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     Your items are indexed instantly, and they automatically populate in the planner options. You don't have to manually describe color codes or fabric types.
@@ -2066,14 +2047,14 @@ export default function App() {
             )}
 
             {onboardingStep === 3 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>👑</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>3. Interactive 3D Mannequin Visualizer</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Curious how the colors look together? The planner features a fully moveable <strong>3D Mannequin</strong>. 
                   It renders the active outfit items (shirt, pants, jacket, shoes) directly on the model so you can visually evaluate the match before trying anything on.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Controls:</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     Click and drag inside the mannequin panel to rotate the model 360 degrees. Use your scroll wheel or pinch to zoom.
@@ -2083,14 +2064,14 @@ export default function App() {
             )}
 
             {onboardingStep === 4 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>🧺</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>4. Wear Logs & Laundry Hub</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Keeping track of clean clothes has never been easier. When you wear an outfit, tap the <strong>WORN</strong> button. 
                   This sends the items to your **Laundry Pool** (in wash) so the AI won't suggest them again.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Laundry cycle:</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     Once you wash the clothes, go to the <strong>Laundry</strong> tab and click <strong>Wash Completed</strong> on the items to return them to your clean wardrobe rotation pool!
@@ -2100,14 +2081,14 @@ export default function App() {
             )}
 
             {onboardingStep === 5 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>💬</div>
                 <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>5. Style Chatbot Assistant</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Need a quick fashion recommendation or want to know if you have clean blue shirts? 
                   Tap the chatbot icon in the bottom right corner. You can speak via voice access or text to chat directly with the stylist agent.
                 </p>
-                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                <div style={{ marginTop: '10px', background: 'rgba(255, 255, 255, 0.03)', backdropFilter: 'blur(8px)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
                   <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Try voice prompts:</h4>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                     Click the Microphone icon and ask: <em>"What should I wear for a client lunch?"</em> or <em>"Do I have any clean shirts?"</em> and Stylix will speak back!
@@ -2221,6 +2202,13 @@ export default function App() {
           0% { opacity: 0.4; }
           50% { opacity: 1; filter: drop-shadow(0 0 4px #10B981); }
           100% { opacity: 0.4; }
+        }
+        @keyframes fadeStep {
+          from { opacity: 0; transform: scale(0.98) translateY(6px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .fade-step {
+          animation: fadeStep 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         @media (max-width: 768px) {
           .pc-sidebar { display: none !important; }
