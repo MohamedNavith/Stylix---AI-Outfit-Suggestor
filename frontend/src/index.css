@@ -1,18 +1,18 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
-/* Stylix Premium Dark Theme */
+/* Stylix Classic Dark Theme (Default) */
 :root {
-  --bg-primary: #F4F5F7;        /* Page background */
-  --bg-secondary: #FFFFFF;      /* Surface / card bg */
-  --bg-surface: #FFFFFF;        /* Card backgrounds */
-  --accent: #F5820D;            /* Primary CTA */
-  --accent-glow: rgba(245, 130, 13, 0.1);
-  --text-primary: #1B2430;      /* Primary text */
-  --text-secondary: #5A6472;    /* Secondary text */
-  --text-muted: #5A6472;
-  --border-color: #E1E4E8;      /* Border / divider */
-  --border-accent: rgba(245, 130, 13, 0.3);
-  --card-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
+  --bg-primary: #0A090E;
+  --bg-secondary: #13111C;
+  --bg-surface: rgba(19, 17, 28, 0.7);
+  --accent: #B794F4; /* Soft Violet/Purple */
+  --accent-glow: rgba(183, 148, 244, 0.15);
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0AEC0;
+  --text-muted: #718096;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-accent: rgba(183, 148, 244, 0.3);
+  --card-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5);
   --font-sans: 'Outfit', sans-serif;
   --font-mono: 'Space Grotesk', sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -28,18 +28,49 @@
   outline-offset: 2px;
 }
 
-/* Secondary theme fallback mappings to keep system-wide contrast uniform */
-[data-theme='cyber'], [data-theme='gold'] {
-  --bg-primary: #F4F5F7;
-  --bg-secondary: #FFFFFF;
-  --bg-surface: #FFFFFF;
-  --accent: #F5820D;
+/* Cyber Green Theme (Dark) */
+[data-theme='cyber'] {
+  --bg-primary: #080C14;
+  --bg-secondary: #0D1524;
+  --bg-surface: rgba(13, 21, 36, 0.7);
+  --accent: #10B981;
+  --accent-glow: rgba(16, 185, 129, 0.15);
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0AEC0;
+  --text-muted: #718096;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-accent: rgba(16, 185, 129, 0.3);
+  --card-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Sunrise Gold Theme (Dark) */
+[data-theme='gold'] {
+  --bg-primary: #0E0B09;
+  --bg-secondary: #18120F;
+  --bg-surface: rgba(24, 18, 15, 0.7);
+  --accent: #D97706;
+  --accent-glow: rgba(217, 119, 6, 0.15);
+  --text-primary: #F3F4F6;
+  --text-secondary: #A0AEC0;
+  --text-muted: #718096;
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-accent: rgba(217, 119, 6, 0.3);
+  --card-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5);
+}
+
+/* Light Minimal Theme (Bright Light Theme) */
+[data-theme='light-minimal'] {
+  --bg-primary: #F4F5F7;        /* Page background */
+  --bg-secondary: #FFFFFF;      /* Surface / card bg */
+  --bg-surface: #FFFFFF;        /* Card backgrounds */
+  --accent: #F5820D;            /* Primary CTA */
   --accent-glow: rgba(245, 130, 13, 0.1);
-  --text-primary: #1B2430;
-  --text-secondary: #5A6472;
+  --text-primary: #1B2430;      /* Primary text */
+  --text-secondary: #5A6472;    /* Secondary text */
   --text-muted: #5A6472;
-  --border-color: #E1E4E8;
+  --border-color: #E1E4E8;      /* Border / divider */
   --border-accent: rgba(245, 130, 13, 0.3);
+  --card-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
 }
 
 /* Reset and Layout */
@@ -185,6 +216,14 @@ body {
 }
 
 /* Form Styles */
+.form-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
 .form-input {
   width: 100%;
   padding: 12px;

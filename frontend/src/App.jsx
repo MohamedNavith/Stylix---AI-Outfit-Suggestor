@@ -1244,7 +1244,7 @@ export default function App() {
           borderRadius: '16px', 
           display: 'flex', 
           flexDirection: 'column',
-          backgroundColor: '#13111C', 
+          backgroundColor: 'var(--bg-secondary)', 
           border: '1px solid var(--border-accent)',
           boxShadow: '0 10px 30px rgba(0,0,0,0.6)', 
           zIndex: 110, 
@@ -1566,13 +1566,13 @@ export default function App() {
             style={{ 
               width: '90%', maxWidth: '420px', height: '100%', borderRadius: 0, 
               padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px',
-              overflowY: 'auto', background: '#0F0E17', animation: 'fadeInUp 0.3s ease-out'
+              overflowY: 'auto', background: 'var(--bg-secondary)', animation: 'fadeInUp 0.3s ease-out'
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Settings size={20} style={{ color: 'var(--accent)' }} />
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#FFF' }}>Settings</h3>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>Settings</h3>
               </div>
               <button 
                 type="button" 
@@ -1670,7 +1670,7 @@ export default function App() {
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ flexGrow: 1 }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                     WhatsApp Link
                     <span style={{ fontSize: '0.6rem', color: 'var(--accent)', background: 'var(--accent-glow)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-accent)', fontWeight: 'bold' }}>COMING SOON</span>
                   </span>
@@ -1687,7 +1687,7 @@ export default function App() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                   <div style={{ flexGrow: 1 }}>
-                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#FFF' }}>Telegram Link</span>
+                    <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Telegram Link</span>
                     <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Sync wardrobe queries with Telegram Bot</span>
                   </div>
                   <input 
