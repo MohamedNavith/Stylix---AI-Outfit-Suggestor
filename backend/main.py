@@ -137,9 +137,9 @@ class LoginSchema(BaseModel):
 class SignupSchema(BaseModel):
     username: str
     password: str
-    name: str
-    birthday: str
-    gender: str
+    name: Optional[str] = None
+    birthday: Optional[str] = None
+    gender: Optional[str] = None
 
 class OnboardingSchema(BaseModel):
     preferred_colors: List[str]
@@ -253,8 +253,26 @@ def signup(data: SignupSchema):
     )
     if not success:
         raise HTTPException(status_code=400, detail="Username already exists")
-    log_system_event(f"New user registered: '{data.username}' ({data.gender}).")
-    return {"message": "Account created successfully"}
+    log_system_event(f"New user registered: '{data.username}' ({data.gender or 'male'}).")
+    
+    # Automatically log the user in
+    user = db.get_user(data.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User created but failed to load database profile.")
+        
+    return {
+        "username": data.username,
+        "name": user.get("name", data.username),
+        "birthday": user.get("birthday", "2000-01-01"),
+        "gender": user.get("gender", "male"),
+        "role": user.get("role", "user"),
+        "email": user.get("email", ""),
+        "mobile": user.get("mobile", ""),
+        "theme": user.get("theme", "classic"),
+        "whatsapp_linked": user.get("whatsapp_linked", False),
+        "telegram_linked": user.get("telegram_linked", False),
+        "token": f"token_{data.username}_{uuid.uuid4().hex[:6]}"
+    }
 
 # Birthday notification check
 @app.get("/api/notifications/birthday")

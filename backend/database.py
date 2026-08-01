@@ -247,17 +247,17 @@ class EncryptedDatabase:
                 if res.status_code not in [200, 201]:
                     return False
                 
-                # 2. Seed Default Wardrobe
+                # 2. Seed Default Wardrobe via Bulk Insert
                 defaults = self._get_default_user_data()
-                for item in defaults["wardrobe"]:
-                    item_payload = {**item, "username": username}
-                    httpx.post(f"{SUPABASE_URL}/rest/v1/wardrobe_items", json=item_payload, headers=self.headers)
+                wardrobe_payloads = [{**item, "username": username} for item in defaults["wardrobe"]]
+                httpx.post(f"{SUPABASE_URL}/rest/v1/wardrobe_items", json=wardrobe_payloads, headers=self.headers)
                 
                 # 3. Seed Default Style Profile
                 profile_payload = {**defaults["style_profile"], "username": username}
                 httpx.post(f"{SUPABASE_URL}/rest/v1/style_profiles", json=profile_payload, headers=self.headers)
                 
-                # 4. Seed Default Plans
+                # 4. Seed Default Plans via Bulk Insert
+                plan_payloads = []
                 for day in defaults["routine_plan"]:
                     day_payload = {
                         "id": f"plan_{username}_{day['day_index']}",
@@ -270,7 +270,8 @@ class EncryptedDatabase:
                         "status": day["status"],
                         "rating": day["rating"]
                     }
-                    httpx.post(f"{SUPABASE_URL}/rest/v1/routine_plans", json=day_payload, headers=self.headers)
+                    plan_payloads.append(day_payload)
+                httpx.post(f"{SUPABASE_URL}/rest/v1/routine_plans", json=plan_payloads, headers=self.headers)
                 return True
             except Exception as e:
                 print(f"Error creating user in Supabase: {e}")

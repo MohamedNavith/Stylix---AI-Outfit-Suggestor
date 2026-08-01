@@ -416,9 +416,33 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
           {/* Cards Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '12px' }}>
             {filteredItems.length === 0 ? (
-              <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '30px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                No clothes found matching the filters.
-              </div>
+              totalCount === 0 ? (
+                <div className="glass-panel" style={{ 
+                  gridColumn: '1 / -1', 
+                  padding: '40px 24px', 
+                  textAlign: 'center', 
+                  color: 'var(--text-secondary)', 
+                  fontSize: '0.9rem',
+                  border: '1px dashed var(--border-accent)',
+                  borderRadius: '12px',
+                  background: 'rgba(255,255,255,0.01)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '2rem' }}>👚</div>
+                  <h4 style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Your Wardrobe Catalog is Empty!</h4>
+                  <p style={{ maxWidth: '400px', margin: '0 auto', lineHeight: '1.5', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Upload a photo or a 360° video scan of your garments using the <strong>Add Garment</strong> panel on the left.
+                    Stylix's built-in AI will automatically catalog, label, and tag them (category, color, fabric, and formality), and they will appear right here in your closet catalog!
+                  </p>
+                </div>
+              ) : (
+                <div className="glass-panel" style={{ gridColumn: '1 / -1', padding: '30px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  No clothes found matching your active filters or search query.
+                </div>
+              )
             ) : (
               filteredItems.map(item => (
                 <div key={item.id} className="glass-panel glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px', background: 'var(--bg-secondary)' }}>

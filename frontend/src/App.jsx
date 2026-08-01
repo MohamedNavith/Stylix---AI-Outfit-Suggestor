@@ -9,6 +9,7 @@ import WardrobeCatalog from './components/WardrobeCatalog';
 import LaundryHub from './components/LaundryHub';
 import AdminPanel from './components/AdminPanel';
 import { BUILD_ID } from './version';
+import landingHero from './assets/stylix_landing_hero.jpg';
 
 let API_HOST = import.meta.env.VITE_API_URL;
 if (!API_HOST) {
@@ -105,6 +106,10 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Onboarding Walkthrough Tour State
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   // Profile Settings Modal State
   const [showSettings, setShowSettings] = useState(false);
@@ -219,6 +224,16 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
+    if (currentUser) {
+      const onboarded = localStorage.getItem('stylix_onboarded');
+      if (onboarded !== 'true') {
+        setShowOnboarding(true);
+        setOnboardingStep(0);
+      }
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     const checkUpdates = async () => {
       try {
         let originUrl = window.location.origin;
@@ -325,38 +340,37 @@ export default function App() {
       
       const data = await res.json();
       if (res.ok) {
-        if (isLogin) {
-          localStorage.setItem('stylix_user', data.username);
-          localStorage.setItem('stylix_role', data.role);
-          localStorage.setItem('stylix_theme', data.theme || 'classic');
-          localStorage.setItem('stylix_gender', data.gender || 'male');
-          localStorage.setItem('stylix_name', data.name || data.username);
-          localStorage.setItem('stylix_birthday', data.birthday || '2000-01-01');
-          localStorage.setItem('stylix_token', data.token);
+        localStorage.setItem('stylix_user', data.username);
+        localStorage.setItem('stylix_role', data.role);
+        localStorage.setItem('stylix_theme', data.theme || 'classic');
+        localStorage.setItem('stylix_gender', data.gender || 'male');
+        localStorage.setItem('stylix_name', data.name || data.username);
+        localStorage.setItem('stylix_birthday', data.birthday || '2000-01-01');
+        localStorage.setItem('stylix_token', data.token);
 
-          setCookie('stylix_user', data.username);
-          setCookie('stylix_role', data.role);
-          setCookie('stylix_theme', data.theme || 'classic');
-          setCookie('stylix_gender', data.gender || 'male');
-          setCookie('stylix_name', data.name || data.username);
-          setCookie('stylix_birthday', data.birthday || '2000-01-01');
-          setCookie('stylix_token', data.token);
+        setCookie('stylix_user', data.username);
+        setCookie('stylix_role', data.role);
+        setCookie('stylix_theme', data.theme || 'classic');
+        setCookie('stylix_gender', data.gender || 'male');
+        setCookie('stylix_name', data.name || data.username);
+        setCookie('stylix_birthday', data.birthday || '2000-01-01');
+        setCookie('stylix_token', data.token);
 
-          setCurrentUser(data.username);
-          setUserRole(data.role);
-          setTheme(data.theme || 'classic');
-          setSettingsName(data.name || data.username);
-          setSettingsBirthday(data.birthday || '2000-01-01');
-          setSettingsGender(data.gender || 'male');
-          setSettingsEmail(data.email || '');
-          setSettingsMobile(data.mobile || '');
-          setWhatsappLinked(data.whatsapp_linked || false);
-          setTelegramLinked(data.telegram_linked || false);
-        } else {
-          alert("Account created! Please sign in.");
-          setIsLogin(true);
-          setUsernameInput(usernameInput);
-          setPasswordInput('');
+        setCurrentUser(data.username);
+        setUserRole(data.role);
+        setTheme(data.theme || 'classic');
+        setSettingsName(data.name || data.username);
+        setSettingsBirthday(data.birthday || '2000-01-01');
+        setSettingsGender(data.gender || 'male');
+        setSettingsEmail(data.email || '');
+        setSettingsMobile(data.mobile || '');
+        setWhatsappLinked(data.whatsapp_linked || false);
+        setTelegramLinked(data.telegram_linked || false);
+
+        if (!isLogin) {
+          localStorage.setItem('stylix_onboarded', 'false');
+          setShowOnboarding(true);
+          setOnboardingStep(0);
         }
       } else {
         setAuthError(data.detail || "Authentication failed.");
@@ -678,6 +692,30 @@ export default function App() {
                 <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>Automatic laundry and rotation tracking</span>
               </div>
             </div>
+
+            {/* Landing Hero Product Image */}
+            <div style={{ 
+              marginTop: '30px',
+              borderRadius: '16px',
+              border: '1px solid var(--border-color)',
+              overflow: 'hidden',
+              boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+              background: 'var(--bg-secondary)',
+              padding: '6px',
+              display: isMobile ? 'none' : 'block'
+            }}>
+              <img 
+                src={landingHero} 
+                alt="Stylix 3D Mannequin Visualizer Preview" 
+                style={{ 
+                  width: '100%', 
+                  height: 'auto', 
+                  borderRadius: '12px',
+                  objectFit: 'cover',
+                  display: 'block'
+                }} 
+              />
+            </div>
           </div>
 
           {/* Right Panel: Login Card */}
@@ -706,7 +744,9 @@ export default function App() {
               {!isLogin && (
                 <>
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Full Name</label>
+                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                      Full Name <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span>
+                    </label>
                     <input 
                       type="text" 
                       className="form-input" 
@@ -719,15 +759,16 @@ export default function App() {
                   </div>
 
                   <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Birthday</label>
+                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                      Birthday <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>(Optional)</span>
+                    </label>
                     <input 
-                      type="text" 
-                      placeholder="DD-MM-YYYY or YYYY-MM-DD"
+                      type="date" 
                       className="form-input" 
                       value={birthdayInput}
                       onChange={(e) => setBirthdayInput(e.target.value)}
                       disabled={authLoading}
-                      style={{ marginTop: '4px' }}
+                      style={{ marginTop: '4px', colorScheme: 'dark' }}
                     />
                   </div>
 
@@ -1091,6 +1132,28 @@ export default function App() {
 
           {/* Profile Details Trigger (Top Right) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            {!isMobile && (
+              <button 
+                onClick={() => { setOnboardingStep(0); setShowOnboarding(true); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  marginRight: '6px',
+                  transition: 'background 0.2s'
+                }}
+              >
+                <span>❓ How it Works</span>
+              </button>
+            )}
             {!isMobile && (
               <a 
                 href={`https://t.me/stylixAi_Bot?start=${currentUser}`}
@@ -1918,6 +1981,191 @@ export default function App() {
           />
           <div style={{ position: 'absolute', bottom: '30px', color: '#FFF', fontSize: '0.85rem', fontWeight: 600 }}>
             Tap anywhere to close
+          </div>
+        </div>
+      )}
+
+      {/* 6. INTERACTIVE ONBOARDING WALKTHROUGH TOUR */}
+      {showOnboarding && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', justifyContent: 'center',
+          alignItems: 'center', zIndex: 99999, backdropFilter: 'blur(8px)', padding: '20px'
+        }}>
+          <div className="glass-panel animate-scale" style={{
+            width: '95%',
+            maxWidth: '600px',
+            padding: '28px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-accent)',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px',
+            position: 'relative',
+            borderRadius: '16px'
+          }}>
+            <button 
+              onClick={() => { localStorage.setItem('stylix_onboarded', 'true'); setShowOnboarding(false); }}
+              style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
+            >
+              <X size={20} />
+            </button>
+
+            {onboardingStep === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>👔</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>Welcome to Stylix! 🤖</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Stylix is your intelligent <strong>AI wardrobe assistant & personal stylist</strong>. 
+                  Every morning, deciding what to wear, checking laundry, and matching colors takes time and creates decision fatigue. Stylix solves this by digitizing your physical closet, tracking clean clothes, and automatically planning your daily outfits.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '6px' }}>💡 How it helps you:</h4>
+                  <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <li><strong>Busy Mornings:</strong> Instantly check your coordinated outfit timeline. No more thinking required.</li>
+                    <li><strong>Travel / Events:</strong> Know exactly what matches ahead of time for any occasion (client lunch, casual friday).</li>
+                    <li><strong>Minimize Waste:</strong> Rotate all your clothes so you wear everything you own instead of just the top 20%.</li>
+                  </ul>
+                </div>
+              </div>
+            )}
+
+            {onboardingStep === 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>📅</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>1. Coordinated Timeline Planner</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  The <strong>Planner</strong> maps your daily activities (like "Office Day", "Client Lunch", "Casual Friday") to custom, weather-aligned outfits. 
+                  It handles everything automatically by selecting clean matches that respect color harmony and styles.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>How to use it:</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Don't like the AI's selection? Simply click <strong>Shuffle Outfits</strong> to refresh the plan, or click the refresh icon on any specific item to swap it with another clean alternative!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {onboardingStep === 2 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>📸</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>2. Add Garments via Groq Vision AI</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Adding clothes is effortless. Navigate to the <strong>Wardrobe</strong> catalog tab. You can upload a photo of your item on a hanger or record a short 360° video. 
+                  Our vision AI will automatically identify the fabric, color tone, formality rating, and category.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Why this is cool:</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Your items are indexed instantly, and they automatically populate in the planner options. You don't have to manually describe color codes or fabric types.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {onboardingStep === 3 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>👑</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>3. Interactive 3D Mannequin Visualizer</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Curious how the colors look together? The planner features a fully moveable <strong>3D Mannequin</strong>. 
+                  It renders the active outfit items (shirt, pants, jacket, shoes) directly on the model so you can visually evaluate the match before trying anything on.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Controls:</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Click and drag inside the mannequin panel to rotate the model 360 degrees. Use your scroll wheel or pinch to zoom.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {onboardingStep === 4 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>🧺</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>4. Wear Logs & Laundry Hub</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Keeping track of clean clothes has never been easier. When you wear an outfit, tap the <strong>WORN</strong> button. 
+                  This sends the items to your **Laundry Pool** (in wash) so the AI won't suggest them again.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Laundry cycle:</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Once you wash the clothes, go to the <strong>Laundry</strong> tab and click <strong>Wash Completed</strong> on the items to return them to your clean wardrobe rotation pool!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {onboardingStep === 5 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ fontSize: '2rem' }}>💬</div>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>5. Style Chatbot Assistant</h3>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  Need a quick fashion recommendation or want to know if you have clean blue shirts? 
+                  Tap the chatbot icon in the bottom right corner. You can speak via voice access or text to chat directly with the stylist agent.
+                </p>
+                <div style={{ marginTop: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+                  <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '4px' }}>Try voice prompts:</h4>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Click the Microphone icon and ask: <em>"What should I wear for a client lunch?"</em> or <em>"Do I have any clean shirts?"</em> and Stylix will speak back!
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', alignItems: 'center' }}>
+              <button 
+                onClick={() => { localStorage.setItem('stylix_onboarded', 'true'); setShowOnboarding(false); }}
+                className="btn-secondary" 
+                style={{ fontSize: '0.8rem', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                Skip Walkthrough
+              </button>
+              
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {onboardingStep > 0 && (
+                  <button 
+                    onClick={() => setOnboardingStep(prev => prev - 1)} 
+                    className="btn-secondary" 
+                    style={{ fontSize: '0.8rem', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer' }}
+                  >
+                    Back
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    if (onboardingStep < 5) {
+                      setOnboardingStep(prev => prev + 1);
+                    } else {
+                      localStorage.setItem('stylix_onboarded', 'true');
+                      setShowOnboarding(false);
+                    }
+                  }} 
+                  className="btn-primary" 
+                  style={{ fontSize: '0.8rem', padding: '8px 20px', borderRadius: '8px', background: 'var(--accent)', color: 'var(--bg-primary)', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  {onboardingStep === 5 ? 'Get Started' : 'Next'}
+                </button>
+              </div>
+            </div>
+            
+            {/* Step Indicators */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
+              {[0,1,2,3,4,5].map(step => (
+                <div 
+                  key={step} 
+                  style={{ 
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: onboardingStep === step ? 'var(--accent)' : 'var(--border-color)',
+                    transition: 'background 0.3s' 
+                  }} 
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}
