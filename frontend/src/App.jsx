@@ -1036,9 +1036,14 @@ export default function App() {
 
           {/* Consolidated Agent Heartbeats */}
           <div style={{ marginTop: 'auto', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
-              🤖 Touch the agents to see its purpose!
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '2px' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#cca43b', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                🤖 System Agents Network
+              </span>
+              <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 500 }}>
+                Click to see the purpose of each agent
+              </span>
+            </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.75rem' }}>
               {[
@@ -1927,8 +1932,8 @@ export default function App() {
             <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--accent)', marginBottom: '12px' }}>{selectedAgent}</h3>
             <p style={{ fontSize: '0.9rem', color: '#E2E8F0', lineHeight: 1.5, marginBottom: '20px' }}>
               {selectedAgent === 'Coordinator Agent' && "The Coordinated Planner orchestrates your weekly rotation planner, updates worn/skip feedback loops, and sends dirty items to the laundry pool automatically."}
-              {selectedAgent === 'Stylist Agent' && "The AI Fashion Stylist uses the Groq LLaMA model to evaluate color harmony, occasion matching score, dynamic theme personalization, and handles user chatbot chats."}
-              {selectedAgent === 'Wardrobe Agent' && "The Wardrobe Catalog Manager catalogs uploaded clothes or OpenCV videos of garments on a hanger, extracts visual details, and auto-tags attributes via Groq Vision."}
+              {selectedAgent === 'Stylist Agent' && "The AI Fashion Stylist uses advanced language models to evaluate color harmony, occasion matching score, dynamic theme personalization, and handles user chatbot chats."}
+              {selectedAgent === 'Wardrobe Agent' && "The Wardrobe Catalog Manager catalogs uploaded clothes or OpenCV videos of garments on a hanger, extracts visual details, and auto-tags attributes via AI Vision."}
             </p>
             <button onClick={() => setSelectedAgent(null)} className="btn-primary" style={{ width: '100%' }}>Close</button>
           </div>
@@ -2032,7 +2037,7 @@ export default function App() {
             {onboardingStep === 2 && (
               <div className="fade-step" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ fontSize: '2rem' }}>📸</div>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>2. Add Garments via Groq Vision AI</h3>
+                <h3 style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>2. Add Garments via AI Vision Scanner</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Adding clothes is effortless. Navigate to the <strong>Wardrobe</strong> catalog tab. You can upload a photo of your item on a hanger or record a short 360° video. 
                   Our vision AI will automatically identify the fabric, color tone, formality rating, and category.

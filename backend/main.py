@@ -35,6 +35,42 @@ WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "stylix_verifica
 
 import time
 from fastapi.responses import PlainTextResponse
+import io
+import base64
+from PIL import Image
+
+def compress_base64_image(base64_str: str, max_size: int = 350, quality: int = 70) -> str:
+    if not base64_str:
+        return base64_str
+    try:
+        header = ""
+        # Check for data URL scheme prefix
+        if "," in base64_str:
+            header, base64_str = base64_str.split(",", 1)
+            header += ","
+            
+        img_bytes = base64.b64decode(base64_str)
+        img = Image.open(io.BytesIO(img_bytes))
+        
+        # Convert transparent modes to standard RGB
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        # Resize thumbnail preserving aspect ratio
+        img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        
+        out_buffer = io.BytesIO()
+        img.save(out_buffer, format="JPEG", quality=quality, optimize=True)
+        compressed_bytes = out_buffer.getvalue()
+        
+        if len(compressed_bytes) < len(img_bytes):
+            compressed_base64 = base64.b64encode(compressed_bytes).decode("utf-8")
+            return "data:image/jpeg;base64," + compressed_base64
+            
+        return header + base64_str
+    except Exception as e:
+        print(f"Error compressing base64 image: {e}")
+        return base64_str
 
 # In-memory failed logins tracker: {key: [timestamps]}
 failed_login_attempts = {}
@@ -322,6 +358,7 @@ async def add_wardrobe_item(username: str, data: AddItemSchema, request: Request
         tags = coordinator.wardrobe_agent.catalog_clothing_item(data.image_data, data.file_name)
         item_name = data.name if data.name else tags.get("name", "New Wardrobe Item")
         
+        compressed_image = compress_base64_image(data.image_data)
         new_item = {
             "id": f"item_{uuid.uuid4().hex[:8]}",
             "name": item_name,
@@ -333,7 +370,7 @@ async def add_wardrobe_item(username: str, data: AddItemSchema, request: Request
             "style_tag": tags.get("style_tag", "minimalist"),
             "is_clean": True,
             "last_worn_date": None,
-            "image_data": data.image_data,
+            "image_data": compressed_image,
             "mesh_type": tags.get("mesh_type", "shirt"),
             "texture_map": tags.get("texture_map", "solid_color")
         }

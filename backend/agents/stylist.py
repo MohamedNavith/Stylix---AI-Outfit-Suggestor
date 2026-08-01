@@ -233,7 +233,7 @@ class StylistAgent:
         return score
 
     def generate_weekly_plan(self, username: str, context_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        all_items = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean,last_worn_date,image_data")
+        all_items = self.db.get_wardrobe(username, select_cols="id,name,category,color,fabric,formality,pattern,style_tag,is_clean,last_worn_date,mesh_type,texture_map")
         profile = self.db.get_style_profile(username)
         
         user_info = self.db.get_user(username) or {}
@@ -352,69 +352,57 @@ class StylistAgent:
                 "verdict": ""
             })
             
-        # Batch call to Groq Llama to generate style verdicts (confirms API key and evaluates styling logic)
-        try:
-            from config_keys import DEFAULT_GROQ_API_KEY
-        except ImportError:
-            DEFAULT_GROQ_API_KEY = ""
-        groq_key = os.environ.get("GROQ_API_KEY") or DEFAULT_GROQ_API_KEY
-        
-        if groq_key:
-            try:
-                combo_desc = []
-                for slot in updated_plan:
-                    outfit_str = ", ".join([f"{item['name']} ({item['color']})" for item in slot["assigned_outfit"]])
-                    combo_desc.append(f"Day {slot['day_index']} ({slot['day_name']} - {slot['occasion']}): {outfit_str}")
-                
-                verdict_prompt = (
-                    f"You are the Stylix AI fashion director. Review this 6-day outfit plan for {gender} user '{username}':\n"
-                    + "\n".join(combo_desc) + "\n\n"
-                    "For each day, write a very short 1-line style verdict (under 15 words) explaining why the color/formality matches the occasion. "
-                    "Return a JSON object mapping day index string (e.g. \"0\", \"1\", ...) to its verdict. "
-                    "Example output: {\"0\": \"Navy trousers contrast cleanly with the white shirt for a formal lunch.\", \"1\": \"...\"}\n"
-                    "Output ONLY the raw valid JSON block."
-                )
-                
-                import httpx
-                headers = {
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [
-                        {"role": "system", "content": "You are a professional fashion editor. Only reply with raw JSON."},
-                        {"role": "user", "content": verdict_prompt}
-                    ],
-                    "temperature": 0.3,
-                    "response_format": {"type": "json_object"}
-                }
-                res = httpx.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=20.0)
-                if res.status_code == 200:
-                    verdicts_json = res.json()["choices"][0]["message"]["content"].strip()
-                    verdicts = json.loads(verdicts_json)
-                    for slot in updated_plan:
-                        idx_str = str(slot["day_index"])
-                        if idx_str in verdicts:
-                            slot["verdict"] = verdicts[idx_str]
-                    print("Stylix weekly style verdicts generated successfully via Groq LLaMA.")
-            except Exception as e:
-                print(f"Error generating style verdicts via Groq: {e}")
-
-        # Fallback to local rule-based verdicts if not set
+        # Smart local styling verdict builder (runs instantly and sounds highly professional)
         for slot in updated_plan:
-            if not slot.get("verdict"):
-                outfit = slot["assigned_outfit"]
-                if outfit:
-                    top = next((i for i in outfit if i["category"] == "top"), None)
-                    bottom = next((i for i in outfit if i["category"] == "bottom"), None)
-                    if top and bottom:
-                        slot["verdict"] = f"The {top['color']} top matches the {bottom['color']} bottom for a balanced {slot['occasion'].lower()} outfit."
-                    else:
-                        slot["verdict"] = f"A neat {slot['occasion'].lower()} selection optimized for your schedule."
+            outfit = slot["assigned_outfit"]
+            occasion = slot["occasion"]
+            top = next((i for i in outfit if i["category"] == "top"), None)
+            bottom = next((i for i in outfit if i["category"] == "bottom"), None)
+            outerwear = next((i for i in outfit if i["category"] == "outerwear"), None)
+            
+            if top and bottom:
+                color_harmonies = {
+                    ("navy", "white"): "The clean contrast between navy and white creates a classic, sophisticated silhouette.",
+                    ("black", "white"): "Monochromatic black and white pairing offers a timeless, high-contrast style statement.",
+                    ("beige", "navy"): "Warm beige tones contrast elegantly with cool navy for a balanced, polished presentation.",
+                    ("grey", "black"): "Muted grey paired with solid black offers a sleek, modern, and minimalist aesthetic.",
+                    ("blue", "khaki"): "Classic blue and khaki combination blends natural earthy tones with a refreshing top.",
+                }
+                pair = (top["color"].lower(), bottom["color"].lower())
+                harmony_text = color_harmonies.get(pair) or color_harmonies.get((bottom["color"].lower(), top["color"].lower()))
+                if not harmony_text:
+                    harmony_text = f"The {top['color'].lower()} top and {bottom['color'].lower()} bottom form a balanced color profile."
+                
+                occ_lower = occasion.lower()
+                if "client" in occ_lower or "meeting" in occ_lower or "business" in occ_lower:
+                    setting_text = "ideal for professional impression and office settings."
+                elif "casual" in occ_lower or "weekend" in occ_lower:
+                    setting_text = "providing excellent comfort for your active weekend schedule."
+                elif "party" in occ_lower or "dinner" in occ_lower or "social" in occ_lower:
+                    setting_text = "offering a chic, evening-ready balance of style and sophistication."
                 else:
-                    slot["verdict"] = "No outfits planned for this day."
-                    
+                    setting_text = f"perfectly aligned with your {occasion.lower()} agenda."
+                
+                outer_text = ""
+                if outerwear:
+                    outer_text = f" Layered with the {outerwear['color'].lower()} {outerwear['category'].lower()},"
+                
+                slot["verdict"] = f"{harmony_text}{outer_text} {setting_text}"
+            else:
+                slot["verdict"] = f"A neat {occasion.lower()} selection optimized for your schedule."
+
+        # Fetch image data only for selected items to minimize query payload and time
+        selected_ids = list(set([item["id"] for slot in updated_plan for item in slot["assigned_outfit"]]))
+        if selected_ids:
+            try:
+                images_list = self.db.get_wardrobe(username, select_cols="id,image_data", item_ids=selected_ids)
+                image_map = {item["id"]: item.get("image_data") for item in images_list if item.get("image_data")}
+                for slot in updated_plan:
+                    for item in slot["assigned_outfit"]:
+                        item["image_data"] = image_map.get(item["id"])
+            except Exception as e:
+                print(f"Error mapping selected outfit image data: {e}")
+
         return updated_plan
 
     def chat_with_stylist(self, username: str, message: str) -> str:

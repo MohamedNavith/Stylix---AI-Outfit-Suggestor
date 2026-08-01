@@ -289,10 +289,14 @@ class EncryptedDatabase:
             self.save()
             return True
 
-    def get_wardrobe(self, username: str, select_cols: str = "*") -> List[Dict[str, Any]]:
+    def get_wardrobe(self, username: str, select_cols: str = "*", item_ids: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         if self.is_cloud:
             try:
                 url = f"{SUPABASE_URL}/rest/v1/wardrobe_items?username=eq.{username}&select={select_cols}"
+                if item_ids:
+                    # Clean and format IDs for postgREST in.() filter
+                    cleaned_ids = ",".join([str(i) for i in item_ids])
+                    url += f"&id=in.({cleaned_ids})"
                 res = httpx.get(url, headers=self.headers, timeout=30.0)
                 if res.status_code == 200:
                     return res.json()
@@ -302,11 +306,14 @@ class EncryptedDatabase:
         user = self.get_user(username)
         if not user:
             return []
+        items = user["wardrobe"]
+        if item_ids:
+            items = [i for i in items if i["id"] in item_ids]
         if select_cols == "*":
-            return user["wardrobe"]
+            return items
         cols = [c.strip() for c in select_cols.split(",")]
         filtered = []
-        for item in user["wardrobe"]:
+        for item in items:
             filtered.append({k: v for k, v in item.items() if k in cols})
         return filtered
 
@@ -395,13 +402,35 @@ class EncryptedDatabase:
 
         if raw_plan:
             try:
-                wardrobe = self.get_wardrobe(username, select_cols="id,image_data")
-                image_map = {item["id"]: item.get("image_data") for item in wardrobe if item.get("image_data")}
+                # Find only unique item IDs that actually lack image_data in the response
+                needed_ids = []
                 for day in raw_plan:
                     if "assigned_outfit" in day and isinstance(day["assigned_outfit"], list):
                         for item in day["assigned_outfit"]:
                             if not item.get("image_data"):
-                                item["image_data"] = image_map.get(item["id"])
+                                needed_ids.append(item["id"])
+                
+                if needed_ids:
+                    needed_ids = list(set(needed_ids))
+                    image_map = {}
+                    if self.is_cloud:
+                        url = f"{SUPABASE_URL}/rest/v1/wardrobe_items?username=eq.{username}&select=id,image_data"
+                        # Clean and format IDs for postgREST in.() filter
+                        cleaned_ids = ",".join([str(i) for i in needed_ids])
+                        url += f"&id=in.({cleaned_ids})"
+                        res = httpx.get(url, headers=self.headers, timeout=20.0)
+                        if res.status_code == 200:
+                            image_map = {item["id"]: item.get("image_data") for item in res.json() if item.get("image_data")}
+                    else:
+                        user = self.get_user(username)
+                        if user:
+                            image_map = {item["id"]: item.get("image_data") for item in user["wardrobe"] if item["id"] in needed_ids and item.get("image_data")}
+                            
+                    for day in raw_plan:
+                        if "assigned_outfit" in day and isinstance(day["assigned_outfit"], list):
+                            for item in day["assigned_outfit"]:
+                                if not item.get("image_data"):
+                                    item["image_data"] = image_map.get(item["id"])
             except Exception as e:
                 print(f"Error enriching plan image data: {e}")
 
