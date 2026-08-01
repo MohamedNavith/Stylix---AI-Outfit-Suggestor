@@ -33,13 +33,96 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN") or DEFAULT_TELEGRAM_BO
 WHATSAPP_TOKEN = os.environ.get("WHATSAPP_TOKEN", "")
 WHATSAPP_VERIFY_TOKEN = os.environ.get("WHATSAPP_VERIFY_TOKEN", "stylix_verification")
 
+import time
+from fastapi.responses import PlainTextResponse
+
+# In-memory failed logins tracker: {key: [timestamps]}
+failed_login_attempts = {}
+
+def check_login_rate_limit(key: str):
+    now = time.time()
+    # Filter attempts in the last 15 minutes (900 seconds)
+    attempts = failed_login_attempts.get(key, [])
+    attempts = [t for t in attempts if now - t < 900]
+    failed_login_attempts[key] = attempts
+    
+    if len(attempts) >= 5:
+        # Calculate cooldown time
+        cooldown = int(900 - (now - attempts[0]))
+        return False, cooldown
+    return True, 0
+
+def record_failed_login(key: str):
+    now = time.time()
+    if key not in failed_login_attempts:
+        failed_login_attempts[key] = []
+    failed_login_attempts[key].append(now)
+
+
+# Authorization Verification Helper
+def verify_authorization(request: Request, target_username: Optional[str] = None):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        log_system_event("Unauthorized API request: missing or invalid authorization header.")
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
+        
+    token = auth_header.split(" ")[1]
+    parts = token.split("_")
+    if len(parts) < 3 or parts[0] != "token":
+        log_system_event("Unauthorized API request: invalid token structure.")
+        raise HTTPException(status_code=401, detail="Invalid token format")
+        
+    token_username = parts[1]
+    user = db.get_user(token_username)
+    if not user:
+        log_system_event(f"Unauthorized API request: invalid user session for '{token_username}'.")
+        raise HTTPException(status_code=401, detail="Invalid session token user")
+        
+    # Check if target_username matches. If not, allow only if request user is admin
+    if target_username and target_username != token_username:
+        if user.get("role") != "admin":
+            log_system_event(f"Forbidden API request: User '{token_username}' attempted to access '{target_username}' data.")
+            raise HTTPException(status_code=403, detail="Access denied. You cannot access other users' data.")
+            
+    return token_username
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+        "https://stylix.vercel.app",
+        "https://stylix-ai-outfit-suggestor.vercel.app",
+    ],
+    allow_origin_regex="https://.*\\.vercel\\.app|http://localhost:\\d+|http://127.0.0.1:\\d+|capacitor://localhost",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self' *;"
+    )
+    return response
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def get_robots_txt():
+    return "User-agent: *\nDisallow: /admin\nDisallow: /api/admin/\n"
 
 @app.get("/")
 def read_root():
@@ -99,18 +182,53 @@ class SettingsUpdateSchema(BaseModel):
 
 # Authentication Endpoints
 @app.post("/api/auth/login")
-def login(data: LoginSchema):
-    user = db.get_user(data.username)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if user["password"] != data.password:
-        raise HTTPException(status_code=401, detail="Incorrect password")
+def login(data: LoginSchema, request: Request):
+    ip = request.client.host if request.client else "unknown"
+    username = data.username
     
-    log_system_event(f"User '{data.username}' successfully logged in.")
+    # Check rate limit per IP
+    ip_ok, ip_cooldown = check_login_rate_limit(f"ip:{ip}")
+    if not ip_ok:
+        log_system_event(f"Rate limit exceeded: Blocked login attempt from IP {ip}.")
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Too many failed login attempts from this IP. Please try again in {ip_cooldown} seconds."
+        )
+        
+    # Check rate limit per Account username
+    user_ok, user_cooldown = check_login_rate_limit(f"user:{username}")
+    if not user_ok:
+        log_system_event(f"Rate limit exceeded: Blocked login attempt for username '{username}'.")
+        raise HTTPException(
+            status_code=429, 
+            detail=f"Too many failed login attempts for this account. Please try again in {user_cooldown} seconds."
+        )
+        
+    user = db.get_user(username)
+    if not user:
+        record_failed_login(f"ip:{ip}")
+        record_failed_login(f"user:{username}")
+        log_system_event(f"Failed login attempt: Non-existent user '{username}' from IP {ip}.")
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user["password"] != data.password:
+        record_failed_login(f"ip:{ip}")
+        record_failed_login(f"user:{username}")
+        if username == "admin":
+            log_system_event(f"ALERT: Failed admin login attempt from IP {ip} (incorrect password)!")
+        else:
+            log_system_event(f"Failed login attempt for user '{username}' from IP {ip}.")
+        raise HTTPException(status_code=401, detail="Incorrect password")
+        
+    # Clear on success
+    failed_login_attempts.pop(f"ip:{ip}", None)
+    failed_login_attempts.pop(f"user:{username}", None)
+    
+    log_system_event(f"User '{username}' successfully logged in.")
     
     return {
-        "username": data.username,
-        "name": user.get("name", data.username),
+        "username": username,
+        "name": user.get("name", username),
         "birthday": user.get("birthday", "2000-01-01"),
         "gender": user.get("gender", "male"),
         "role": user.get("role", "user"),
@@ -119,7 +237,7 @@ def login(data: LoginSchema):
         "theme": user.get("theme", "classic"),
         "whatsapp_linked": user.get("whatsapp_linked", False),
         "telegram_linked": user.get("telegram_linked", False),
-        "token": f"token_{data.username}_{uuid.uuid4().hex[:6]}"
+        "token": f"token_{username}_{uuid.uuid4().hex[:6]}"
     }
 
 @app.post("/api/auth/signup")
@@ -140,7 +258,8 @@ def signup(data: SignupSchema):
 
 # Birthday notification check
 @app.get("/api/notifications/birthday")
-def check_birthday(username: str):
+def check_birthday(username: str, request: Request):
+    verify_authorization(request, username)
     user = db.get_user(username)
     if not user or not user.get("birthday"):
         return {"is_birthday": False}
@@ -161,7 +280,8 @@ def check_birthday(username: str):
 
 # Profile Settings Update
 @app.post("/api/profile/update")
-def update_profile(username: str, data: SettingsUpdateSchema):
+def update_profile(username: str, data: SettingsUpdateSchema, request: Request):
+    verify_authorization(request, username)
     updates = {k: v for k, v in data.model_dump().items() if v is not None}
     if not updates:
         return {"message": "No updates specified"}
@@ -173,11 +293,13 @@ def update_profile(username: str, data: SettingsUpdateSchema):
 
 # Wardrobe Endpoints
 @app.get("/api/wardrobe")
-def get_wardrobe(username: str):
+def get_wardrobe(username: str, request: Request):
+    verify_authorization(request, username)
     return coordinator.wardrobe_agent.get_wardrobe(username)
 
 @app.post("/api/wardrobe")
-async def add_wardrobe_item(username: str, data: AddItemSchema):
+async def add_wardrobe_item(username: str, data: AddItemSchema, request: Request):
+    verify_authorization(request, username)
     try:
         tags = coordinator.wardrobe_agent.catalog_clothing_item(data.image_data, data.file_name)
         item_name = data.name if data.name else tags.get("name", "New Wardrobe Item")
@@ -205,7 +327,8 @@ async def add_wardrobe_item(username: str, data: AddItemSchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/wardrobe/upload-video")
-async def upload_video_item(username: str, data: AddVideoSchema):
+async def upload_video_item(username: str, data: AddVideoSchema, request: Request):
+    verify_authorization(request, username)
     try:
         tags = coordinator.wardrobe_agent.process_video_frames_3d(data.video_data, data.file_name)
         item_name = data.name if data.name else tags.get("name", "3D Scanned Outfit")
@@ -232,7 +355,8 @@ async def upload_video_item(username: str, data: AddVideoSchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/wardrobe/{item_id}")
-def delete_wardrobe_item(username: str, item_id: str):
+def delete_wardrobe_item(username: str, item_id: str, request: Request):
+    verify_authorization(request, username)
     user = db.get_user(username)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -254,20 +378,23 @@ def delete_wardrobe_item(username: str, item_id: str):
 
 # Profile Endpoints
 @app.get("/api/profile")
-def get_style_profile(username: str):
+def get_style_profile(username: str, request: Request):
+    verify_authorization(request, username)
     profile = db.get_style_profile(username)
     if not profile:
         raise HTTPException(status_code=404, detail="User profile not found")
     return profile
 
 @app.post("/api/profile/onboarding")
-def save_onboarding(username: str, data: OnboardingSchema):
+def save_onboarding(username: str, data: OnboardingSchema, request: Request):
+    verify_authorization(request, username)
     coordinator.stylist_agent.initialize_onboarding(username, data.model_dump())
     log_system_event(f"User '{username}' completed style profile onboarding.")
     return {"message": "Onboarding completed successfully"}
 
 @app.get("/api/admin/stats")
-def get_admin_stats(username: str):
+def get_admin_stats(username: str, request: Request):
+    verify_authorization(request, username)
     user = db.get_user(username)
     if not user or user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Not authorized. Admin access only.")
@@ -286,21 +413,37 @@ def get_admin_stats(username: str):
                         "username": u_name,
                         "name": u_name,
                         "gender": "male",
-                        "role": "admin" if u_name == "admin" else "user"
+                        "role": "admin" if u_name == "admin" else "user",
+                        "birthday": "2000-01-01",
+                        "total_items": 12,
+                        "clean_items": 12,
+                        "dirty_items": 0,
+                        "formality_bias": "smart-casual",
+                        "preferred_colors": ["white", "black"]
                     })
         except Exception as e:
             print(f"Error fetching cloud user stats: {e}")
             
     if not users_list:
-        users_list = [
-            {
+        users_list = []
+        for k, v in db.data.get("users", {}).items():
+            wardrobe = v.get("wardrobe", [])
+            total_items = len(wardrobe)
+            clean_items = len([i for i in wardrobe if i.get("is_clean", True)])
+            dirty_items = total_items - clean_items
+            profile = v.get("style_profile", {})
+            users_list.append({
                 "username": k,
                 "name": v.get("name") or k,
                 "gender": v.get("gender") or "male",
-                "role": v.get("role") or "user"
-            }
-            for k, v in db.data.get("users", {}).items()
-        ]
+                "role": v.get("role") or "user",
+                "birthday": v.get("birthday") or "2000-01-01",
+                "total_items": total_items,
+                "clean_items": clean_items,
+                "dirty_items": dirty_items,
+                "formality_bias": profile.get("formality_bias", "casual"),
+                "preferred_colors": profile.get("preferred_colors", [])
+            })
         
     return {
         "total_users": len(users_list),
@@ -310,17 +453,20 @@ def get_admin_stats(username: str):
 
 # Planning Endpoints
 @app.get("/api/plan")
-def get_plan(username: str):
+def get_plan(username: str, request: Request):
+    verify_authorization(request, username)
     return db.get_routine_plan(username)
 
 @app.post("/api/plan/generate")
-def generate_plan(username: str):
+def generate_plan(username: str, request: Request):
+    verify_authorization(request, username)
     plan = coordinator.generate_weekly_cycle(username)
     log_system_event(f"User '{username}' shuffled and generated weekly planner plan.")
     return plan
 
 @app.post("/api/plan/confirm")
-def confirm_worn(username: str, data: FeedbackSchema):
+def confirm_worn(username: str, data: FeedbackSchema, request: Request):
+    verify_authorization(request, username)
     success = coordinator.confirm_day_worn(username, data.day_index, data.rating)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to confirm outfit worn")
@@ -328,7 +474,8 @@ def confirm_worn(username: str, data: FeedbackSchema):
     return {"message": "Outfit confirmed worn. Learning updated and items sent to wash."}
 
 @app.post("/api/plan/skip")
-def skip_outfit(username: str, data: FeedbackSchema):
+def skip_outfit(username: str, data: FeedbackSchema, request: Request):
+    verify_authorization(request, username)
     success = coordinator.skip_day_outfit(username, data.day_index)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to skip outfit")
@@ -336,31 +483,120 @@ def skip_outfit(username: str, data: FeedbackSchema):
     return {"message": "Outfit skipped and style profile updated."}
 
 @app.post("/api/plan/swap")
-def swap_outfit(username: str, data: SwapSchema):
+def swap_outfit(username: str, data: SwapSchema, request: Request):
+    verify_authorization(request, username)
     success = coordinator.swap_day_outfit(username, data.day_index, data.item_ids)
     if not success:
         raise HTTPException(status_code=400, detail="Unable to swap outfit")
     log_system_event(f"User '{username}' swapped day index {data.day_index} with custom item IDs: {data.item_ids}.")
     return {"message": "Outfit swapped, new items set to dirty."}
 
+@app.get("/api/plan/suggest-by-occasion")
+def suggest_by_occasion(username: str, occasion: str, request: Request):
+    verify_authorization(request, username)
+    all_items = db.get_wardrobe(username)
+    profile = db.get_style_profile(username)
+    
+    # Filter clean items
+    clean_items = [i for i in all_items if i.get("is_clean", True)]
+    
+    tops = [i for i in clean_items if i.get("category") == "top"]
+    bottoms = [i for i in clean_items if i.get("category") == "bottom"]
+    footwear = [i for i in clean_items if i.get("category") == "footwear"]
+    
+    # Fallback to all items if clean ones are missing
+    if not tops: tops = [i for i in all_items if i.get("category") == "top"]
+    if not bottoms: bottoms = [i for i in all_items if i.get("category") == "bottom"]
+    if not footwear: footwear = [i for i in all_items if i.get("category") == "footwear"]
+    
+    if not tops or not bottoms:
+        raise HTTPException(status_code=400, detail="Not enough items in wardrobe to suggest combinations.")
+        
+    day_context = {"occasion": occasion}
+    user_info = db.get_user(username) or {}
+    gender = user_info.get("gender", "male").lower()
+    
+    # Score items using stylist agent
+    scored_tops = [(t, coordinator.stylist_agent.score_item(t, day_context, profile)) for t in tops]
+    scored_bottoms = [(b, coordinator.stylist_agent.score_item(b, day_context, profile)) for b in bottoms]
+    scored_footwear = [(f, coordinator.stylist_agent.score_item(f, day_context, profile)) for f in footwear] if footwear else []
+    
+    scored_tops.sort(key=lambda x: x[1], reverse=True)
+    scored_bottoms.sort(key=lambda x: x[1], reverse=True)
+    if scored_footwear:
+        scored_footwear.sort(key=lambda x: x[1], reverse=True)
+        
+    combinations = []
+    # Build combinations and score them
+    for t_item, t_score in scored_tops[:5]:
+        for b_item, b_score in scored_bottoms[:5]:
+            if scored_footwear:
+                for f_item, f_score in scored_footwear[:5]:
+                    combo_score = t_score + b_score + f_score
+                    color_score = coordinator.stylist_agent.get_color_harmony_score(t_item.get("color", ""), b_item.get("color", ""))
+                    combo_score += color_score
+                    
+                    if f_item.get("formality") == "formal" and (t_item.get("formality") == "casual" or b_item.get("formality") == "casual"):
+                        combo_score -= 1.5
+                        
+                    if gender == "female" and ("dress" in t_item.get("name", "").lower() or t_item.get("mesh_type") == "dress"):
+                        combo_score += 1.0
+                        
+                    combinations.append({
+                        "score": combo_score,
+                        "items": [t_item, b_item, f_item]
+                    })
+            else:
+                combo_score = t_score + b_score
+                color_score = coordinator.stylist_agent.get_color_harmony_score(t_item.get("color", ""), b_item.get("color", ""))
+                combo_score += color_score
+                
+                if gender == "female" and ("dress" in t_item.get("name", "").lower() or t_item.get("mesh_type") == "dress"):
+                    combo_score += 1.0
+                    
+                combinations.append({
+                    "score": combo_score,
+                    "items": [t_item, b_item]
+                })
+                
+    combinations.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Return top 4 unique combinations
+    seen_combos = set()
+    unique_combos = []
+    for c in combinations:
+        combo_key = tuple(sorted([item["id"] for item in c["items"]]))
+        if combo_key not in seen_combos:
+            seen_combos.add(combo_key)
+            unique_combos.append(c["items"])
+            if len(unique_combos) >= 4:
+                break
+                
+    return unique_combos
+
+
 # Laundry Endpoints
 @app.get("/api/laundry")
-def get_laundry(username: str):
+def get_laundry(username: str, request: Request):
+    verify_authorization(request, username)
     return coordinator.wardrobe_agent.get_laundry_stats(username)
 
 @app.post("/api/laundry/wash")
-def run_laundry(username: str):
+def run_laundry(username: str, request: Request):
+    verify_authorization(request, username)
     cleaned_count = coordinator.wardrobe_agent.clean_all_dirty_items(username)
     log_system_event(f"User '{username}' washed dirty garments. Cleaned {cleaned_count} items.")
     return {"message": f"Laundry cycle complete. Cleaned {cleaned_count} items."}
 
 # Chat history & Assistant Endpoint
 @app.get("/api/chat/history")
-def get_chat_history(username: str):
+def get_chat_history(username: str, request: Request):
+    verify_authorization(request, username)
     return db.get_chat_history(username)
 
 @app.post("/api/chat")
-def chat_endpoint(data: ChatSchema):
+def chat_endpoint(data: ChatSchema, request: Request):
+    verify_authorization(request, data.username)
     log_system_event(f"User '{data.username}' sent message: \"{data.message[:35]}...\"")
     response = coordinator.stylist_agent.chat_with_stylist(data.username, data.message)
     return {"response": response}

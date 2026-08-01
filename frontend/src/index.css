@@ -2,40 +2,44 @@
 
 /* Stylix Premium Dark Theme */
 :root {
-  --bg-primary: #0A090E;
-  --bg-secondary: #13111C;
-  --bg-surface: rgba(19, 17, 28, 0.7);
-  --accent: #B794F4; /* Soft Violet/Purple */
-  --accent-glow: rgba(183, 148, 244, 0.15);
-  --text-primary: #F3F4F6;
-  --text-secondary: #A0AEC0;
-  --text-muted: #718096;
-  --border-color: rgba(255, 255, 255, 0.05);
-  --border-accent: rgba(183, 148, 244, 0.3);
-  --card-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.5);
+  --bg-primary: #F4F5F7;        /* Page background */
+  --bg-secondary: #FFFFFF;      /* Surface / card bg */
+  --bg-surface: #FFFFFF;        /* Card backgrounds */
+  --accent: #F5820D;            /* Primary CTA */
+  --accent-glow: rgba(245, 130, 13, 0.1);
+  --text-primary: #1B2430;      /* Primary text */
+  --text-secondary: #5A6472;    /* Secondary text */
+  --text-muted: #5A6472;
+  --border-color: #E1E4E8;      /* Border / divider */
+  --border-accent: rgba(245, 130, 13, 0.3);
+  --card-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.05);
   --font-sans: 'Outfit', sans-serif;
   --font-mono: 'Space Grotesk', sans-serif;
   --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-bounce: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --success: #0E8C7F;
+  --error: #D64545;
+  --border-radius: 8px;
 }
 
-/* Secondary palette styles for customizer */
-[data-theme='cyber'] {
-  --bg-primary: #080C14;
-  --bg-secondary: #0D1524;
-  --bg-surface: rgba(13, 21, 36, 0.7);
-  --accent: #10B981;
-  --accent-glow: rgba(16, 185, 129, 0.15);
-  --border-accent: rgba(16, 185, 129, 0.3);
+/* Accessible focus styling */
+*:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
-[data-theme='gold'] {
-  --bg-primary: #0E0B09;
-  --bg-secondary: #18120F;
-  --bg-surface: rgba(24, 18, 15, 0.7);
-  --accent: #D97706;
-  --accent-glow: rgba(217, 119, 6, 0.15);
-  --border-accent: rgba(217, 119, 6, 0.3);
+/* Secondary theme fallback mappings to keep system-wide contrast uniform */
+[data-theme='cyber'], [data-theme='gold'] {
+  --bg-primary: #F4F5F7;
+  --bg-secondary: #FFFFFF;
+  --bg-surface: #FFFFFF;
+  --accent: #F5820D;
+  --accent-glow: rgba(245, 130, 13, 0.1);
+  --text-primary: #1B2430;
+  --text-secondary: #5A6472;
+  --text-muted: #5A6472;
+  --border-color: #E1E4E8;
+  --border-accent: rgba(245, 130, 13, 0.3);
 }
 
 /* Reset and Layout */

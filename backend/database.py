@@ -97,6 +97,10 @@ class EncryptedDatabase:
                     if "users" not in self.data:
                         self.data = self._get_initial_schema()
                         self.save()
+                    elif "admin" in self.data.get("users", {}):
+                        if self.data["users"]["admin"].get("password") != "admin1":
+                            self.data["users"]["admin"]["password"] = "admin1"
+                            self.save()
                 except Exception as e:
                     print(f"Error decrypting local database: {e}. Reinitializing.")
                     self.data = self._get_initial_schema()
@@ -171,7 +175,7 @@ class EncryptedDatabase:
 
     def _get_initial_schema(self) -> Dict[str, Any]:
         admin_data = self._get_default_user_data()
-        admin_data["password"] = "admin123"
+        admin_data["password"] = "admin1"
         admin_data["role"] = "admin"
         admin_data["name"] = "Administrator"
         admin_data["birthday"] = "2000-01-01"

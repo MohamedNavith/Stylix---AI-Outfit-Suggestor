@@ -122,6 +122,9 @@ export default function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [latestVersionId, setLatestVersionId] = useState('');
 
+  // Admin Inspect Mode State
+  const [inspectUser, setInspectUser] = useState(null);
+
   // Chatbot State
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
@@ -147,7 +150,9 @@ export default function App() {
   const fetchAppWardrobe = async () => {
     if (!currentUser) return;
     try {
-      const res = await fetch(`${API_HOST}/api/wardrobe?username=${encodeURIComponent(currentUser)}`);
+      const res = await fetch(`${API_HOST}/api/wardrobe?username=${encodeURIComponent(currentUser)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setWardrobeItems(data);
@@ -214,16 +219,16 @@ export default function App() {
   }, [currentUser]);
 
   useEffect(() => {
-    // Only check for updates in production build
-    if (BUILD_ID === 'development') return;
-
     const checkUpdates = async () => {
       try {
-        const originUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-          ? (API_HOST.includes('-backend.vercel.app') 
-              ? API_HOST.replace('-backend.vercel.app', '.vercel.app') 
-              : 'https://stylix-three.vercel.app') 
-          : window.location.origin;
+        let originUrl = window.location.origin;
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'capacitor:') {
+          if (API_HOST.includes('-backend.vercel.app')) {
+            originUrl = API_HOST.replace('-backend.vercel.app', '.vercel.app');
+          } else {
+            originUrl = 'https://stylix-ai-outfit-suggestor.vercel.app';
+          }
+        }
 
         const res = await fetch(`${originUrl}/version.json?t=${Date.now()}`);
         if (res.ok) {
@@ -239,7 +244,7 @@ export default function App() {
     };
 
     checkUpdates();
-    const interval = setInterval(checkUpdates, 30000); // Check every 30 seconds
+    const interval = setInterval(checkUpdates, 15000); // Check every 15 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -257,7 +262,9 @@ export default function App() {
 
   const checkBirthdayAlert = async () => {
     try {
-      const res = await fetch(`${API_HOST}/api/notifications/birthday?username=${encodeURIComponent(currentUser)}`);
+      const res = await fetch(`${API_HOST}/api/notifications/birthday?username=${encodeURIComponent(currentUser)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.is_birthday) {
@@ -271,14 +278,16 @@ export default function App() {
 
   const fetchChatHistory = async () => {
     try {
-      const res = await fetch(`${API_HOST}/api/chat/history?username=${encodeURIComponent(currentUser)}`);
+      const res = await fetch(`${API_HOST}/api/chat/history?username=${encodeURIComponent(currentUser)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.length > 0) {
           setChatMessages(data);
         } else {
           setChatMessages([
-            { sender: 'assistant', text: `Welcome back, ${localStorage.getItem('stylix_name') || currentUser}! I'm your Stylix AI coach. Ask me what clean clothes you have or get outfit recommendations!` }
+            { sender: 'assistant', text: `Welcome back, ${localStorage.getItem('stylix_name') || currentUser}! I'm your StylixAi coach. Ask me what clean clothes you have or get outfit recommendations!` }
           ]);
         }
       }
@@ -323,6 +332,7 @@ export default function App() {
           localStorage.setItem('stylix_gender', data.gender || 'male');
           localStorage.setItem('stylix_name', data.name || data.username);
           localStorage.setItem('stylix_birthday', data.birthday || '2000-01-01');
+          localStorage.setItem('stylix_token', data.token);
 
           setCookie('stylix_user', data.username);
           setCookie('stylix_role', data.role);
@@ -330,6 +340,7 @@ export default function App() {
           setCookie('stylix_gender', data.gender || 'male');
           setCookie('stylix_name', data.name || data.username);
           setCookie('stylix_birthday', data.birthday || '2000-01-01');
+          setCookie('stylix_token', data.token);
 
           setCurrentUser(data.username);
           setUserRole(data.role);
@@ -352,7 +363,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      setAuthError("Could not reach Stylix server. Is the backend running?");
+      setAuthError("Could not reach StylixAi server. Is the backend running?");
     } finally {
       setAuthLoading(false);
     }
@@ -401,7 +412,10 @@ export default function App() {
       
       const res = await fetch(`${API_HOST}/api/profile/update?username=${encodeURIComponent(currentUser)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
         body: JSON.stringify(updates)
       });
       if (res.ok) {
@@ -488,7 +502,10 @@ export default function App() {
     try {
       const res = await fetch(`${API_HOST}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
         body: JSON.stringify({ username: currentUser, message: userMsg })
       });
       if (res.ok) {
@@ -510,7 +527,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      setChatMessages(prev => [...prev, { sender: 'assistant', text: "Network error. Make sure the Stylix backend server is running." }]);
+      setChatMessages(prev => [...prev, { sender: 'assistant', text: "Network error. Make sure the StylixAi backend server is running." }]);
     } finally {
       setChatLoading(false);
     }
@@ -529,7 +546,10 @@ export default function App() {
       try {
         await fetch(`${API_HOST}/api/profile/update?username=${encodeURIComponent(currentUser)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+          },
           body: JSON.stringify({ theme: newTheme })
         });
       } catch (err) {
@@ -538,11 +558,7 @@ export default function App() {
     }
   };
 
-  const quickFillAdmin = () => {
-    setUsernameInput('admin');
-    setPasswordInput('admin123');
-    setIsLogin(true);
-  };
+
 
   // Auth Screen
   if (!currentUser) {
@@ -568,7 +584,7 @@ export default function App() {
             boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
             borderBottom: '1px solid rgba(255,255,255,0.1)'
           }}>
-            <span>🔔 A new version of Stylix is available! Your code changes are live.</span>
+            <span>🔔 A new version of StylixAi is available! Your code changes are live.</span>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button 
                 onClick={() => window.location.reload(true)} 
@@ -612,169 +628,209 @@ export default function App() {
           </div>
         )}
         <div style={{
-          flexGrow: 1, display: 'flex', justifyContent: 'center', alignItems: 'center',
-          position: 'relative', overflow: 'hidden', padding: '20px'
+          flexGrow: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+          justifyContent: 'center', alignItems: 'center', gap: isMobile ? '24px' : '48px',
+          position: 'relative', overflow: 'hidden', padding: isMobile ? '24px 16px' : '48px',
+          maxWidth: '1100px', margin: '0 auto', width: '100%'
         }}>
           <div className="app-bg-overlay" />
           <div className="glowing-blob" />
 
-        <div className="glass-panel animate-scale" style={{ width: '100%', maxWidth: '440px', padding: '32px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{ display: 'inline-flex', marginBottom: '12px' }}>
-              <StylixLogo size={48} />
+          {/* Left Panel: Value Proposition */}
+          <div style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            justifyContent: 'center', textAlign: isMobile ? 'center' : 'left',
+            maxWidth: '500px', color: 'var(--text-primary)', padding: '8px'
+          }}>
+            <div style={{ display: 'inline-flex', justifyContent: isMobile ? 'center' : 'flex-start', marginBottom: '16px' }}>
+              <StylixLogo size={56} />
             </div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h2>
-            <p style={{ color: '#cca43b', fontSize: '0.62rem', marginTop: '4px', textTransform: 'uppercase', letterSpacing: '2.5px', fontWeight: 'bold' }}>
-              Dress. Wear. Repeat Never.
+            <h1 style={{
+              fontSize: isMobile ? '1.8rem' : '2.4rem', fontWeight: 700,
+              color: 'var(--text-primary)', lineHeight: 1.2, marginBottom: '16px'
+            }}>
+              Your AI stylist — turn one item into a full outfit in seconds
+            </h1>
+            <p style={{
+              fontSize: '1rem', color: 'var(--text-secondary)',
+              lineHeight: 1.5, marginBottom: '24px'
+            }}>
+              Get personalized wardrobe suggestions, manage laundry cycles, and look your best every single day. Digitized, organized, and styled by AI.
             </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left', marginTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'var(--accent-glow)', color: 'var(--accent)', padding: '8px', borderRadius: '50%', display: 'flex' }}>
+                  <Sparkles size={16} />
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>AI-driven daily outfit planners</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'var(--accent-glow)', color: 'var(--accent)', padding: '8px', borderRadius: '50%', display: 'flex' }}>
+                  <Layers size={16} />
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>Smart wardrobe cataloging</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: 'var(--accent-glow)', color: 'var(--accent)', padding: '8px', borderRadius: '50%', display: 'flex' }}>
+                  <Droplet size={16} />
+                </div>
+                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: 'var(--text-primary)' }}>Automatic laundry and rotation tracking</span>
+              </div>
+            </div>
           </div>
 
-          {authError && (
-            <div style={{
-              display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 14px', borderRadius: '8px',
-              color: '#EF4444', fontSize: '0.85rem', marginBottom: '20px'
-            }}>
-              <X size={16} />
-              <span>{authError}</span>
+          {/* Right Panel: Login Card */}
+          <div className="glass-panel animate-scale" style={{ width: '100%', maxWidth: '400px', padding: '32px', zIndex: 10 }}>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                {isLogin ? "Welcome Back" : "Create Account"}
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '4px' }}>
+                {isLogin ? "Sign in to access your wardrobe" : "Fill out details to get started"}
+              </p>
             </div>
-          )}
 
-          <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {!isLogin && (
-              <>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Full Name</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    placeholder="Enter full name"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    disabled={authLoading}
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Birthday</label>
-                  <input 
-                    type="text" 
-                    placeholder="DD-MM-YYYY or YYYY-MM-DD"
-                    className="form-input" 
-                    value={birthdayInput}
-                    onChange={(e) => setBirthdayInput(e.target.value)}
-                    disabled={authLoading}
-                  />
-                </div>
-
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label className="form-label">Gender</label>
-                  <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
-                      <input 
-                        type="radio" 
-                        name="gender" 
-                        value="male" 
-                        checked={genderInput === 'male'} 
-                        onChange={() => setGenderInput('male')}
-                        style={{ accentColor: 'var(--accent)' }}
-                      /> Male
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
-                      <input 
-                        type="radio" 
-                        name="gender" 
-                        value="female" 
-                        checked={genderInput === 'female'} 
-                        onChange={() => setGenderInput('female')}
-                        style={{ accentColor: 'var(--accent)' }}
-                      /> Female
-                    </label>
-                  </div>
-                </div>
-              </>
+            {authError && (
+              <div style={{
+                display: 'flex', gap: '8px', alignItems: 'center', background: 'rgba(214, 69, 69, 0.1)',
+                border: '1px solid rgba(214, 69, 69, 0.2)', padding: '10px 14px', borderRadius: '8px',
+                color: 'var(--error)', fontSize: '0.85rem', marginBottom: '20px'
+              }}>
+                <X size={16} />
+                <span>{authError}</span>
+              </div>
             )}
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Username</label>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="Enter username"
-                value={usernameInput}
-                onChange={(e) => setUsernameInput(e.target.value)}
-                disabled={authLoading}
-              />
+            <form onSubmit={handleAuthSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {!isLogin && (
+                <>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Full Name</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="Enter full name"
+                      value={nameInput}
+                      onChange={(e) => setNameInput(e.target.value)}
+                      disabled={authLoading}
+                      style={{ marginTop: '4px' }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Birthday</label>
+                    <input 
+                      type="text" 
+                      placeholder="DD-MM-YYYY or YYYY-MM-DD"
+                      className="form-input" 
+                      value={birthdayInput}
+                      onChange={(e) => setBirthdayInput(e.target.value)}
+                      disabled={authLoading}
+                      style={{ marginTop: '4px' }}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Gender</label>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '4px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                        <input 
+                          type="radio" 
+                          name="gender" 
+                          value="male" 
+                          checked={genderInput === 'male'} 
+                          onChange={() => setGenderInput('male')}
+                          style={{ accentColor: 'var(--accent)' }}
+                        /> Male
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                        <input 
+                          type="radio" 
+                          name="gender" 
+                          value="female" 
+                          checked={genderInput === 'female'} 
+                          onChange={() => setGenderInput('female')}
+                          style={{ accentColor: 'var(--accent)' }}
+                        /> Female
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Username</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Enter username"
+                  value={usernameInput}
+                  onChange={(e) => setUsernameInput(e.target.value)}
+                  disabled={authLoading}
+                  style={{ marginTop: '4px' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>Password</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  placeholder="Enter password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  disabled={authLoading}
+                  style={{ marginTop: '4px' }}
+                />
+              </div>
+
+              <button type="submit" className="btn-primary" style={{ marginTop: '8px', background: 'var(--accent)', color: 'white', padding: '12px 24px', fontSize: '0.95rem' }}>
+                {authLoading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Complete Registration'}
+              </button>
+            </form>
+
+            <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              <span 
+                onClick={() => { setIsLogin(!isLogin); setAuthError(''); }}
+                style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                {isLogin ? "Need a new account? Sign Up" : "Already have an account? Sign In"}
+              </span>
             </div>
 
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label">Password</label>
-              <input 
-                type="password" 
-                className="form-input" 
-                placeholder="Enter password"
-                value={passwordInput}
-                onChange={(e) => setPasswordInput(e.target.value)}
-                disabled={authLoading}
-              />
-            </div>
-
-            <button type="submit" className="btn-primary" style={{ marginTop: '8px', background: 'linear-gradient(135deg, #B794F4 0%, #805AD5 100%)', color: 'white' }}>
-              {authLoading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Complete Registration'}
-            </button>
-          </form>
-
-          <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            <span 
-              onClick={() => { setIsLogin(!isLogin); setAuthError(''); }}
-              style={{ color: 'var(--accent)', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              {isLogin ? "Need a new account? Sign Up" : "Already have an account? Sign In"}
-            </span>
+            {isLogin && (
+              <div style={{ 
+                marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', 
+                textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px' 
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>Mobile App</span>
+                  <a 
+                    href="/stylix.apk" 
+                    download="stylix.apk"
+                    className="btn-primary" 
+                    style={{ 
+                      padding: '10px 16px', 
+                      fontSize: '0.85rem', 
+                      justifyContent: 'center',
+                      background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <Cpu size={14} /> Download Android App (APK)
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
-
-          {isLogin && (
-            <div style={{ 
-              marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', 
-              textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '12px' 
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Super Admin Account</span>
-                <button 
-                  onClick={quickFillAdmin} 
-                  className="btn-secondary" 
-                  style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
-                >
-                  Fill Admin Credentials
-                </button>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile App</span>
-                <a 
-                  href="/stylix.apk" 
-                  download="stylix.apk"
-                  className="btn-primary" 
-                  style={{ 
-                    padding: '8px 12px', 
-                    fontSize: '0.8rem', 
-                    justifyContent: 'center',
-                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                    color: 'white',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    borderRadius: '8px'
-                  }}
-                >
-                  <Cpu size={14} /> Download Android App (APK)
-                </a>
-              </div>
-            </div>
-          )}
         </div>
       </div>
-    </div>
     );
   }
 
@@ -800,7 +856,7 @@ export default function App() {
           boxShadow: '0 4px 20px rgba(16, 185, 129, 0.3)',
           borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <span>🔔 A new version of Stylix is available! Your code changes are live.</span>
+          <span>🔔 A new version of StylixAi is available! Your code changes are live.</span>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
               onClick={() => window.location.reload(true)} 
@@ -864,7 +920,7 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <StylixLogo size={36} />
             <div>
-              <h1 style={{ fontSize: '1.45rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF' }}>Stylix</h1>
+              <h1 style={{ fontSize: '1.45rem', fontWeight: 700, fontFamily: "Georgia, serif", color: 'var(--text-primary)' }}>StylixAi</h1>
               <span style={{ fontSize: '0.55rem', color: '#cca43b', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 'bold' }}>Dress. Wear. Repeat Never.</span>
             </div>
           </div>
@@ -1006,12 +1062,12 @@ export default function App() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <StylixLogo size={32} />
               <div>
-                <h1 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: "Georgia, serif", color: '#FFF', margin: 0 }}>Stylix</h1>
+                <h1 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: "Georgia, serif", color: 'var(--text-primary)', margin: 0 }}>StylixAi</h1>
               </div>
             </div>
           ) : (
             <div>
-              <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Stylix 24/7 Wardrobe Orchestrator</h2>
+              <h2 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>StylixAi 24/7 Wardrobe Orchestrator</h2>
             </div>
           )}
 
@@ -1057,7 +1113,7 @@ export default function App() {
               </div>
               {!isMobile && (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFF' }}>{localStorage.getItem('stylix_name') || currentUser}</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{localStorage.getItem('stylix_name') || currentUser}</span>
                   <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>Settings</span>
                 </div>
               )}
@@ -1113,10 +1169,60 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'dashboard' && <RoutinePlan apiHost={API_HOST} username={currentUser} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
-          {activeTab === 'catalog' && <WardrobeCatalog apiHost={API_HOST} username={currentUser} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
-          {activeTab === 'laundry' && <LaundryHub apiHost={API_HOST} username={currentUser} stats={laundryStatsTrigger} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />}
-          {activeTab === 'admin' && userRole === 'admin' && <AdminPanel apiHost={API_HOST} username={currentUser} />}
+          {inspectUser && (
+            <div style={{
+              background: 'linear-gradient(90deg, #F5820D 0%, #D97706 100%)',
+              color: '#FFF',
+              padding: '12px 20px',
+              textAlign: 'center',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <span>🕵️ Admin Mode: Viewing wardrobe and planner for user <strong>@{inspectUser}</strong></span>
+              <button 
+                onClick={() => setInspectUser(null)} 
+                style={{
+                  background: '#FFF',
+                  color: '#D97706',
+                  border: 'none',
+                  padding: '4px 10px',
+                  borderRadius: '4px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Exit Inspect Mode
+              </button>
+            </div>
+          )}
+
+          <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
+            <RoutinePlan apiHost={API_HOST} username={inspectUser || currentUser} wardrobeItems={wardrobeItems} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />
+          </div>
+          <div style={{ display: activeTab === 'catalog' ? 'block' : 'none' }}>
+            <WardrobeCatalog apiHost={API_HOST} username={inspectUser || currentUser} wardrobeItems={wardrobeItems} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />
+          </div>
+          <div style={{ display: activeTab === 'laundry' ? 'block' : 'none' }}>
+            <LaundryHub apiHost={API_HOST} username={inspectUser || currentUser} stats={laundryStatsTrigger} onStatsChange={() => { setLaundryStatsTrigger(prev => prev + 1); fetchAppWardrobe(); }} />
+          </div>
+          {activeTab === 'admin' && userRole === 'admin' && (
+            <AdminPanel 
+              apiHost={API_HOST} 
+              username={currentUser} 
+              onInspectUser={(targetUser) => {
+                setInspectUser(targetUser);
+                setActiveTab('dashboard');
+              }}
+            />
+          )}
         </main>
       </div>
             {/* 3. AI CHATBOT SPARKLE BUTTON (PC ONLY) */}
@@ -1151,7 +1257,7 @@ export default function App() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Sparkles size={16} />
-              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Stylix AI Stylist</span>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>StylixAi Stylist</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <button 
@@ -1284,7 +1390,7 @@ export default function App() {
             })}
             {chatLoading && (
               <div style={{ alignSelf: 'flex-start', padding: '10px 14px', borderRadius: '12px 12px 12px 0', backgroundColor: 'rgba(255,255,255,0.03)', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                Stylix AI is typing...
+                StylixAi is typing...
               </div>
             )}
             
@@ -1325,7 +1431,7 @@ export default function App() {
           <form onSubmit={handleSendChatMessage} style={{ display: 'flex', padding: '10px', borderTop: '1px solid var(--border-color)', gap: '8px', alignItems: 'center' }}>
             <input 
               type="text" 
-              placeholder={isListening ? "Listening..." : "Ask Stylix AI..."} 
+              placeholder={isListening ? "Listening..." : "Ask StylixAi..."} 
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               disabled={chatLoading}
@@ -1656,7 +1762,7 @@ export default function App() {
                   fontWeight: 600
                 }}
               >
-                <Cpu size={14} /> Download Stylix APK
+                <Cpu size={14} /> Download StylixAi APK
               </a>
             </div>
 
@@ -1825,7 +1931,7 @@ export default function App() {
           fontWeight: 700,
           letterSpacing: '3px'
         }}>
-          Stylix
+          StylixAi
         </h1>
         <span style={{ 
           fontSize: '0.65rem', 

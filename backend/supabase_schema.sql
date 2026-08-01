@@ -80,5 +80,5 @@ ALTER TABLE public.chat_history DISABLE ROW LEVEL SECURITY;
 
 -- Pre-populate the super admin account
 INSERT INTO public.stylix_users (username, password, name, birthday, gender, role)
-VALUES ('admin', 'admin123', 'Administrator', '2000-01-01', 'male', 'admin')
+VALUES ('admin', 'admin1', 'Administrator', '2000-01-01', 'male', 'admin')
 ON CONFLICT (username) DO NOTHING;

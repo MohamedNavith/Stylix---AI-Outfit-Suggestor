@@ -14,7 +14,9 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
     if (!username) return;
     setLoading(true);
     try {
-      const res = await fetch(`${apiHost}/api/laundry?username=${encodeURIComponent(username)}`);
+      const res = await fetch(`${apiHost}/api/laundry?username=${encodeURIComponent(username)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setLaundry(data);
@@ -30,7 +32,10 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
     setWashing(true);
     setTimeout(async () => {
       try {
-        const res = await fetch(`${apiHost}/api/laundry/wash?username=${encodeURIComponent(username)}`, { method: 'POST' });
+        const res = await fetch(`${apiHost}/api/laundry/wash?username=${encodeURIComponent(username)}`, { 
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+        });
         if (res.ok) {
           fetchLaundry();
           if (onStatsChange) onStatsChange();
@@ -72,7 +77,7 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
       {/* Main Layout */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: '#FFF' }}>Laundry & Rotation</h2>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>Laundry & Rotation</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
             Keep track of clean pool sizes and send worn garments to wash
           </p>
@@ -82,7 +87,7 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
         
         {/* Status Circular Indicator */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'rgba(19, 17, 28, 0.95)' }}>
+        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', background: 'var(--bg-secondary)' }}>
           <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Clean Ratio</h3>
           
           <div style={{ position: 'relative', width: '130px', height: '130px' }}>
@@ -109,11 +114,11 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
           </div>
 
           <div style={{ display: 'flex', gap: '16px', width: '100%', marginTop: '4px' }}>
-            <div style={{ flex: 1, textAlign: 'center', background: '#13111C', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ flex: 1, textAlign: 'center', background: 'var(--bg-primary)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <span style={{ display: 'block', fontSize: '1.15rem', fontWeight: 700, color: '#10b981' }}>{laundry.clean_count}</span>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Clean Items</span>
             </div>
-            <div style={{ flex: 1, textAlign: 'center', background: '#13111C', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            <div style={{ flex: 1, textAlign: 'center', background: 'var(--bg-primary)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
               <span style={{ display: 'block', fontSize: '1.15rem', fontWeight: 700, color: '#ef4444' }}>{laundry.dirty_count}</span>
               <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>In Wash</span>
             </div>
@@ -123,7 +128,7 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
             <button 
               className="btn-primary" 
               onClick={handleRunLaundry} 
-              style={{ width: '100%', marginTop: '6px', background: 'linear-gradient(135deg, #B794F4 0%, #805AD5 100%)', color: 'white' }}
+              style={{ width: '100%', marginTop: '6px', background: 'var(--accent)', color: 'white' }}
             >
               <Droplet size={14} /> Run Laundry Cycle
             </button>
@@ -131,7 +136,7 @@ export default function LaundryHub({ apiHost, username, stats, onStatsChange }) 
         </div>
 
         {/* Dirty Queue list */}
-        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(19, 17, 28, 0.95)' }}>
+        <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px', background: 'var(--bg-secondary)' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>Washing Queue</h3>
           
           <div style={{ maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>

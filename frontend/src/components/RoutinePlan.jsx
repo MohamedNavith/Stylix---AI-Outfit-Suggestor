@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import MannequinPreview from './MannequinPreview';
 
-export default function RoutinePlan({ apiHost, username, onStatsChange }) {
+export default function RoutinePlan({ apiHost, username, wardrobeItems, onStatsChange }) {
   const [plan, setPlan] = useState([]);
   const [loading, setLoading] = useState(false);
   const [swappingDay, setSwappingDay] = useState(null);
@@ -14,22 +14,24 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
   const [userGender, setUserGender] = useState('male');
   const [zoomImage, setZoomImage] = useState(null);
 
+  // Occasion Outfit Generator State
+  const [selectedOccasion, setSelectedOccasion] = useState('');
+  const [suggestionsOccasion, setSuggestionsOccasion] = useState('');
+  const [occasionSuggestions, setOccasionSuggestions] = useState([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    fetchPlan();
+    fetchPlan(false);
     fetchUserProfile();
+    setOccasionSuggestions([]);
+    setSelectedOccasion('');
   }, [username]);
 
   const fetchUserProfile = async () => {
     if (!username) return;
     try {
-      const res = await fetch(`${apiHost}/api/profile/update?username=${encodeURIComponent(username)}`); // settings check
-      // Or simply fetch profile directly
-      const profileRes = await fetch(`${apiHost}/api/auth/login`); // Fallback or mock endpoint
-      // We will read user data from local settings update endpoint or similar:
-      const resVal = await fetch(`${apiHost}/api/laundry?username=${encodeURIComponent(username)}`);
-      // Since backend login endpoints return user gender, let's load it from local storage
       const cachedGender = localStorage.getItem('stylix_gender') || 'male';
       setUserGender(cachedGender);
     } catch (e) {
@@ -37,11 +39,13 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     }
   };
 
-  const fetchPlan = async () => {
+  const fetchPlan = async (isSilent = false) => {
     if (!username) return;
-    setLoading(true);
+    if (!isSilent) setLoading(true);
     try {
-      const res = await fetch(`${apiHost}/api/plan?username=${encodeURIComponent(username)}`);
+      const res = await fetch(`${apiHost}/api/plan?username=${encodeURIComponent(username)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setPlan(data);
@@ -49,7 +53,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     } catch (e) {
       console.error("Error fetching plan:", e);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -57,7 +61,10 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     if (!username) return;
     setLoading(true);
     try {
-      const res = await fetch(`${apiHost}/api/plan/generate?username=${encodeURIComponent(username)}`, { method: 'POST' });
+      const res = await fetch(`${apiHost}/api/plan/generate?username=${encodeURIComponent(username)}`, { 
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setPlan(data);
@@ -74,11 +81,14 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     try {
       const res = await fetch(`${apiHost}/api/plan/confirm?username=${encodeURIComponent(username)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
         body: JSON.stringify({ day_index: dayIndex, rating })
       });
       if (res.ok) {
-        fetchPlan();
+        fetchPlan(true);
         if (onStatsChange) onStatsChange();
       }
     } catch (e) {
@@ -90,11 +100,14 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     try {
       const res = await fetch(`${apiHost}/api/plan/skip?username=${encodeURIComponent(username)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
         body: JSON.stringify({ day_index: dayIndex })
       });
       if (res.ok) {
-        fetchPlan();
+        fetchPlan(true);
         if (onStatsChange) onStatsChange();
       }
     } catch (e) {
@@ -106,7 +119,9 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     setSwappingDay(dayIndex);
     setSwapCategory(category);
     try {
-      const res = await fetch(`${apiHost}/api/wardrobe?username=${encodeURIComponent(username)}`);
+      const res = await fetch(`${apiHost}/api/wardrobe?username=${encodeURIComponent(username)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         const filtered = data.filter(item => item.category === category && item.is_clean);
@@ -128,17 +143,69 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
     try {
       const res = await fetch(`${apiHost}/api/plan/swap?username=${encodeURIComponent(username)}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
         body: JSON.stringify({ day_index: swappingDay, item_ids: newItemIds })
       });
       if (res.ok) {
         setSwappingDay(null);
         setSwapCategory('');
-        fetchPlan();
+        fetchPlan(true);
         if (onStatsChange) onStatsChange();
       }
     } catch (e) {
       console.error("Error swapping item:", e);
+    }
+  };
+
+  const fetchOccasionSuggestions = async (occ) => {
+    setSelectedOccasion(occ);
+    if (!occ) {
+      setOccasionSuggestions([]);
+      return;
+    }
+    setSuggestLoading(true);
+    setSuggestionsOccasion(occ);
+    try {
+      const res = await fetch(`${apiHost}/api/plan/suggest-by-occasion?username=${encodeURIComponent(username)}&occasion=${encodeURIComponent(occ)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOccasionSuggestions(data);
+      }
+    } catch (e) {
+      console.error("Error fetching occasion suggestions:", e);
+    } finally {
+      setSuggestLoading(false);
+    }
+  };
+
+  const applySuggestedCombo = async (combo) => {
+    if (!activeDay) return;
+    const newItemIds = combo.map(item => item.id);
+    setLoading(true);
+    try {
+      const res = await fetch(`${apiHost}/api/plan/swap?username=${encodeURIComponent(username)}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+        },
+        body: JSON.stringify({ day_index: activeDay.day_index, item_ids: newItemIds })
+      });
+      if (res.ok) {
+        fetchPlan(true);
+        setOccasionSuggestions([]);
+        setSelectedOccasion('');
+        if (onStatsChange) onStatsChange();
+      }
+    } catch (e) {
+      console.error("Error applying combo suggestion:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -168,7 +235,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
             <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '2px', fontWeight: 600 }}>
               Timeline Planner
             </span>
-            <h2 style={{ fontSize: '1.85rem', fontWeight: 700, fontFamily: 'var(--font-sans)', marginTop: '4px', color: '#FFF' }}>
+            <h2 style={{ fontSize: '1.85rem', fontWeight: 700, fontFamily: 'var(--font-sans)', marginTop: '4px', color: 'var(--text-primary)' }}>
               Coordinated Planner
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
@@ -181,9 +248,9 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
             onClick={generatePlan} 
             disabled={loading}
             style={{ 
-              background: 'linear-gradient(135deg, #B794F4 0%, #805AD5 100%)', 
+              background: 'var(--accent)', 
               color: 'white',
-              boxShadow: '0 4px 15px rgba(128, 90, 213, 0.3)',
+              boxShadow: '0 4px 15px var(--accent-glow)',
               fontSize: '0.85rem'
             }}
           >
@@ -191,6 +258,49 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
             {loading ? 'Orchestrating...' : 'Shuffle Outfits'}
           </button>
         </div>
+
+        {/* Wardrobe health status bar widget */}
+        {wardrobeItems && wardrobeItems.length > 0 && (() => {
+          const totalCount = wardrobeItems.length;
+          const cleanCount = wardrobeItems.filter(i => i.is_clean).length;
+          const dirtyCount = totalCount - cleanCount;
+          const cleanPercentage = totalCount > 0 ? Math.round((cleanCount / totalCount) * 100) : 0;
+          return (
+            <div className="glass-panel animate-fade-in" style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '12px',
+              padding: '12px 18px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+              marginTop: '4px',
+              gap: '12px'
+            }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  🧺 Wardrobe Readiness
+                </span>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
+                  <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--success)' }}>{cleanPercentage}% Ready</span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+                    ({cleanCount} clean & free to wear / {dirtyCount} in wash rotation)
+                  </span>
+                </div>
+              </div>
+              <div style={{ flex: 1, maxWidth: '160px', background: 'var(--border-color)', height: '6px', borderRadius: '3px', overflow: 'hidden', position: 'relative' }}>
+                <div style={{ 
+                  background: 'var(--success)', 
+                  width: `${cleanPercentage}%`, 
+                  height: '100%', 
+                  borderRadius: '3px', 
+                  transition: 'width 0.5s ease-out' 
+                }} />
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Calendar Day selector tabs */}
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '4px 0' }}>
@@ -205,7 +315,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                   padding: '8px 10px',
                   borderRadius: '10px',
                   border: isActive ? '1px solid var(--accent)' : '1px solid var(--border-color)',
-                  background: isActive ? 'var(--accent-glow)' : 'rgba(255,255,255,0.02)',
+                  background: isActive ? 'var(--accent-glow)' : 'var(--bg-secondary)',
                   color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   textAlign: 'center',
@@ -230,7 +340,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
         {/* Left: 3D Moveable Toy/Mannequin Placeholder */}
         <div className="glass-panel" style={{ 
           padding: '24px', 
-          background: 'rgba(19, 17, 28, 0.95)', 
+          background: 'var(--bg-secondary)', 
           display: 'flex', 
           flexDirection: 'column', 
           alignItems: 'center', 
@@ -254,7 +364,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
             <Cpu size={32} style={{ color: 'var(--accent)' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#FFF', fontFamily: 'var(--font-mono)' }}>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
               3D Mannequin Preview
             </h3>
             <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '2px' }}>
@@ -277,7 +387,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
             activeDay && (
               <div className="glass-panel" style={{ 
                 padding: '20px', 
-                background: 'rgba(19, 17, 28, 0.95)',
+                background: 'var(--bg-secondary)',
                 minHeight: '350px',
                 display: 'flex',
                 flexDirection: 'column',
@@ -285,7 +395,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span style={{ fontSize: '1.15rem', fontWeight: 700, color: '#FFF' }}>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                       {activeDay.day_name} • {activeDay.date_label}
                     </span>
                     <span style={{ 
@@ -314,8 +424,8 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                         <div 
                           key={item.id} 
                           style={{ 
-                            background: '#13111C', 
-                            border: '1px solid rgba(255,255,255,0.03)', 
+                            background: 'var(--bg-primary)', 
+                            border: '1px solid var(--border-color)', 
                             borderRadius: '8px',
                             padding: '10px 14px',
                             display: 'flex',
@@ -333,7 +443,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                                   width: '36px',
                                   height: '36px',
                                   borderRadius: '6px',
-                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  border: '1px solid var(--border-color)',
                                   objectFit: 'cover',
                                   cursor: 'pointer',
                                   transition: 'transform 0.2s'
@@ -345,11 +455,11 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                                 width: '36px',
                                 height: '36px',
                                 borderRadius: '6px',
-                                border: '1px solid rgba(255,255,255,0.05)',
+                                border: '1px solid var(--border-color)',
                                 display: 'flex',
                                 justifyContent: 'center',
                                 alignItems: 'center',
-                                background: 'rgba(255,255,255,0.02)',
+                                background: 'var(--bg-secondary)',
                                 fontSize: '0.9rem'
                               }}>
                                 👕
@@ -366,7 +476,7 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                               }}>
                                 {label}
                               </span>
-                              <span style={{ fontSize: '0.9rem', color: '#E2E8F0', fontWeight: 500 }}>
+                              <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 500 }}>
                                 {item.name}
                               </span>
                             </div>
@@ -409,6 +519,89 @@ export default function RoutinePlan({ apiHost, username, onStatsChange }) {
                     <span><strong>AI Style Verdict:</strong> {activeDay.verdict}</span>
                   </div>
                 )}
+
+                {/* Occasion Combination Assistant */}
+                <div style={{
+                  marginTop: '14px',
+                  padding: '16px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      💡 Occasion Combination Assistant
+                    </span>
+                    <select
+                      value={selectedOccasion}
+                      onChange={(e) => fetchOccasionSuggestions(e.target.value)}
+                      className="form-input"
+                      style={{ width: 'auto', padding: '4px 8px', fontSize: '0.75rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
+                    >
+                      <option value="">-- Choose Occasion --</option>
+                      <option value="Casual Day">Casual Day</option>
+                      <option value="Office Day">Office Day</option>
+                      <option value="Client Lunch">Client Lunch</option>
+                      <option value="Casual Friday">Casual Friday</option>
+                      <option value="Weekend Outing">Weekend Outing</option>
+                      <option value="Party Night">Party Night</option>
+                      <option value="Date Night">Date Night</option>
+                      <option value="Gym Work">Gym Work</option>
+                    </select>
+                  </div>
+
+                  {suggestLoading && (
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'center', padding: '10px 0' }}>
+                      Finding best combinations...
+                    </div>
+                  )}
+
+                  {!suggestLoading && occasionSuggestions.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>Suggestions for "{suggestionsOccasion}":</span>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px' }}>
+                        {occasionSuggestions.map((combo, comboIdx) => (
+                          <div 
+                            key={comboIdx} 
+                            style={{ 
+                              padding: '10px', 
+                              background: 'var(--bg-secondary)', 
+                              border: '1px solid var(--border-color)', 
+                              borderRadius: '8px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
+                              position: 'relative'
+                            }}
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexGrow: 1 }}>
+                              {combo.map(item => (
+                                <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.7rem' }}>
+                                  <span title={item.category} style={{ fontSize: '0.8rem' }}>
+                                    {item.category === 'top' ? '👕' : item.category === 'bottom' ? '👖' : '👟'}
+                                  </span>
+                                  <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100px' }} title={item.name}>
+                                    {item.name}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <button
+                              onClick={() => applySuggestedCombo(combo)}
+                              className="btn-primary animate-fade-in"
+                              style={{ padding: '6px 8px', fontSize: '0.65rem', width: '100%', marginTop: '4px', cursor: 'pointer' }}
+                            >
+                              Choose Combo
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {activeDay.status === 'Planned' && activeDay.assigned_outfit && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr', gap: '8px', marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>

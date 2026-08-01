@@ -18,7 +18,9 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
   const fetchCatalog = async () => {
     if (!username) return;
     try {
-      const res = await fetch(`${apiHost}/api/wardrobe?username=${encodeURIComponent(username)}`);
+      const res = await fetch(`${apiHost}/api/wardrobe?username=${encodeURIComponent(username)}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setItems(data);
@@ -43,7 +45,10 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
       try {
         const res = await fetch(`${apiHost}/api/wardrobe?username=${encodeURIComponent(username)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+          },
           body: JSON.stringify({
             name: customName || null,
             image_data: base64Data,
@@ -93,7 +98,10 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
             try {
               const res = await fetch(`${apiHost}/api/wardrobe/upload-video?username=${encodeURIComponent(username)}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${localStorage.getItem('stylix_token')}`
+                },
                 body: JSON.stringify({
                   name: customName || null,
                   video_data: base64Data,
@@ -122,7 +130,8 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
     if (!window.confirm("Are you sure you want to delete this item?")) return;
     try {
       const res = await fetch(`${apiHost}/api/wardrobe/${itemId}?username=${encodeURIComponent(username)}`, { 
-        method: 'DELETE' 
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('stylix_token')}` }
       });
       if (res.ok) {
         fetchCatalog();
@@ -199,27 +208,68 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
     return categoryMatch && cleanMatch && searchMatch;
   });
 
+  const totalCount = items.length;
+  const cleanCount = items.filter(i => i.is_clean).length;
+  const dirtyCount = totalCount - cleanCount;
+  const cleanPercentage = totalCount > 0 ? Math.round((cleanCount / totalCount) * 100) : 0;
+
   return (
     <div className="animate-fade-up" style={{ padding: '10px 0' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <div>
-          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: '#FFF' }}>Wardrobe Catalog</h2>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, color: 'var(--text-primary)' }}>Wardrobe Catalog</h2>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '2px' }}>
             Catalog clothing photos & 360° videos on a hanger to auto-tag via Groq Vision
           </p>
         </div>
       </div>
 
+      {/* Wardrobe health status bar widget */}
+      {totalCount > 0 && (
+        <div className="glass-panel animate-fade-in" style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px',
+          gap: '12px'
+        }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🧺 Wardrobe Readiness
+            </span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '2px' }}>
+              <span style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--success)' }}>{cleanPercentage}% Ready</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                ({cleanCount} clean & free to wear / {dirtyCount} in wash rotation)
+              </span>
+            </div>
+          </div>
+          <div style={{ flex: 1, maxWidth: '200px', background: 'var(--border-color)', height: '8px', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ 
+              background: 'var(--success)', 
+              width: `${cleanPercentage}%`, 
+              height: '100%', 
+              borderRadius: '4px', 
+              transition: 'width 0.5s ease-out' 
+            }} />
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', alignItems: 'start' }}>
         
         {/* Upload Panel */}
-        <div className="glass-panel" style={{ padding: '20px', background: 'rgba(19, 17, 28, 0.95)' }}>
+        <div className="glass-panel" style={{ padding: '20px', background: 'var(--bg-secondary)' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 600, fontFamily: 'var(--font-mono)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Plus size={16} /> Add Garment
           </h3>
 
           {/* Upload method selection tabs */}
-          <div style={{ display: 'flex', gap: '6px', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '8px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-primary)', padding: '4px', borderRadius: '8px', marginBottom: '16px' }}>
             <button
               onClick={() => setActiveUploadTab('photo')}
               disabled={uploading}
@@ -261,7 +311,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
           {activeUploadTab === 'photo' ? (
             <div style={{
               border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '24px 16px', 
-              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(0,0,0,0.1)',
+              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'var(--bg-primary)',
               transition: 'var(--transition-smooth)', position: 'relative'
             }}>
               {uploading ? (
@@ -288,13 +338,13 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
           ) : (
             <div style={{
               border: '2px dashed var(--border-color)', borderRadius: '12px', padding: '24px 16px', 
-              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'rgba(0,0,0,0.1)',
+              textAlign: 'center', cursor: uploading ? 'not-allowed' : 'pointer', background: 'var(--bg-primary)',
               transition: 'var(--transition-smooth)', position: 'relative'
             }}>
               {uploading ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                   <Sparkles size={24} className="animate-pulse" style={{ color: 'var(--accent)' }} />
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: '#FFF' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                     <span style={{ fontWeight: videoStep === 1 ? '700' : '400', color: videoStep === 1 ? 'var(--accent)' : 'var(--text-muted)' }}>[1/4] Extracting Keyframes...</span>
                     <span style={{ fontWeight: videoStep === 2 ? '700' : '400', color: videoStep === 2 ? 'var(--accent)' : 'var(--text-muted)' }}>[2/4] Groq Vision Scanning...</span>
                     <span style={{ fontWeight: videoStep === 3 ? '700' : '400', color: videoStep === 3 ? 'var(--accent)' : 'var(--text-muted)' }}>[3/4] Reconstructing 3D Mesh...</span>
@@ -324,8 +374,8 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* Filters Bar */}
-          <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', background: 'rgba(19, 17, 28, 0.95)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 180px', background: 'rgba(0,0,0,0.15)', borderRadius: '8px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
+          <div className="glass-panel" style={{ padding: '14px', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 180px', background: 'var(--bg-primary)', borderRadius: '8px', padding: '6px 10px', border: '1px solid var(--border-color)' }}>
               <Search size={14} style={{ color: 'var(--text-secondary)' }} />
               <input 
                 type="text" 
@@ -341,7 +391,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
                 value={filterCategory} 
                 onChange={(e) => setFilterCategory(e.target.value)}
                 className="form-input"
-                style={{ width: 'auto', padding: '6px 10px', background: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' }}
+                style={{ width: 'auto', padding: '6px 10px', background: 'var(--bg-secondary)', fontSize: '0.8rem' }}
               >
                 <option value="all">All</option>
                 <option value="top">Tops</option>
@@ -354,7 +404,7 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
                 value={filterClean} 
                 onChange={(e) => setFilterClean(e.target.value)}
                 className="form-input"
-                style={{ width: 'auto', padding: '6px 10px', background: 'rgba(0,0,0,0.2)', fontSize: '0.8rem' }}
+                style={{ width: 'auto', padding: '6px 10px', background: 'var(--bg-secondary)', fontSize: '0.8rem' }}
               >
                 <option value="all">All Status</option>
                 <option value="clean">Clean Only</option>
@@ -371,13 +421,13 @@ export default function WardrobeCatalog({ apiHost, username, onStatsChange }) {
               </div>
             ) : (
               filteredItems.map(item => (
-                <div key={item.id} className="glass-panel glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px', background: 'rgba(19, 17, 28, 0.95)' }}>
+                <div key={item.id} className="glass-panel glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '10px', minHeight: '200px', background: 'var(--bg-secondary)' }}>
                   
                   {/* Image Placeholder */}
                   <div style={{ 
                     height: '90px', 
                     borderRadius: '8px', 
-                    background: '#13111C', 
+                    background: 'var(--bg-primary)', 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center', 
